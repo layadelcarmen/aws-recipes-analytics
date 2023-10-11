@@ -1,0 +1,75 @@
+Resources:
+  DeliveryErrorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/kinesisfirehose/request-logging
+      RetentionInDays: 14
+  DeliveryErrorLogStream:
+    Type: AWS::Logs::LogStream
+    Properties:
+      LogGroupName: !Ref DeliveryErrorLogGroup
+      LogStreamName: S3Delivery
+  FirehoseDS:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: ProductDS
+      DeliveryStreamType: DirectPut
+      ExtendedS3DestinationConfiguration:
+        BucketARN: !Join
+          - ''
+          - - 'arn:aws:s3:::'
+            - !Ref s3bucket
+        BufferingHints:
+          SizeInMBs: 128
+          IntervalInSeconds: 60
+        CloudWatchLoggingOptions:
+          Enabled: true
+          LogGroupName: !Ref DeliveryErrorLogGroup
+          LogStreamName: !Ref DeliveryErrorLogStream
+        CompressionFormat: UNCOMPRESSED
+        ErrorOutputPrefix: error/!{firehose:random-string}/!{firehose:error-output-type}/!{timestamp:yyyy/MM/dd}/
+        Prefix: output/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/
+        RoleARN: !GetAtt deliveryRole.Arn
+  s3bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+  deliveryRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: ''
+            Effect: Allow
+            Principal:
+              Service: firehose.amazonaws.com
+            Action: 'sts:AssumeRole'
+            Condition:
+              StringEquals:
+                'sts:ExternalId': !Ref 'AWS::AccountId'
+      Path: "/"
+      Policies:
+        - PolicyName: firehose_delivery_policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:AbortMultipartUpload'
+                  - 's3:GetBucketLocation'
+                  - 's3:GetObject'
+                  - 's3:ListBucket'
+                  - 's3:ListBucketMultipartUploads'
+                  - 's3:PutObject'
+                Resource:
+                  - !Join
+                    - ''
+                    - - 'arn:aws:s3:::'
+                      - !Ref s3bucket
+                  - !Join
+                    - ''
+                    - - 'arn:aws:s3:::'
+                      - !Ref s3bucket
+                      - '/*'
