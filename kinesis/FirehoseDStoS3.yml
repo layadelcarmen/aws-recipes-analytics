@@ -8,7 +8,7 @@ Resources:
     Type: AWS::Logs::LogStream
     Properties:
       LogGroupName: !Ref DeliveryErrorLogGroup
-      LogStreamName: S3Delivery
+      LogStreamName: !Sub ${AWS::StackName}-DeliveryLogStream
   FirehoseDS:
     Type: AWS::KinesisFirehose::DeliveryStream
     Properties:
