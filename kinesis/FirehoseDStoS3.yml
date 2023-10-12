@@ -10,6 +10,14 @@ Parameters:
     Description: Name of the Log Stream for S3 Delivery
     Type: String
     Default: S3DeliveryLogStream
+  BufferSize:
+    Description: Buffering Hints size in MB
+    Type: Number
+    Default: 128
+  BufferInterval:
+    Description: Buffering Hints interval in seconds
+    Type: Number
+    Default: 60
 Resources:
   S3DeliveryLogGroup:
     Type: AWS::Logs::LogGroup
@@ -33,8 +41,8 @@ Resources:
       ExtendedS3DestinationConfiguration:
         BucketARN: !GetAtt S3DeliveryBucket.Arn
         BufferingHints:
-          SizeInMBs: 128
-          IntervalInSeconds: 60
+          SizeInMBs: !Ref BufferSize
+          IntervalInSeconds: !Ref BufferInterval
         CloudWatchLoggingOptions:
           Enabled: true
           LogGroupName: !Ref S3DeliveryLogGroup
@@ -84,8 +92,6 @@ Outputs:
   S3DeliveryLogGroup:
     Description: Log group name
     Value: !Ref S3DeliveryLogGroup
-  LogStreamName:
+  S3DeliveryLogStream:
     Description: Log stream name
-    Value: !Sub
-      - '${AWS::StackName}-${LogStreamName}'
-      - LogStreamName: !Ref LogStreamName
+    Value: !Ref S3DeliveryLogStream
