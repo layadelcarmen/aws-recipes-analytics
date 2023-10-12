@@ -1,38 +1,38 @@
 Resources:
-  DeliveryLogGroup:
+  S3DeliveryLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub /aws/kinesisfirehose/${AWS::StackName}/delivery-stream
+      LogGroupName: !Sub /aws/kinesisfirehose/${AWS::StackName}/S3Delivery-stream
       RetentionInDays: 14
-  DeliveryLogStream:
+  S3DeliveryLogStream:
     Type: AWS::Logs::LogStream
     Properties:
-      LogGroupName: !Ref DeliveryLogGroup
-      LogStreamName: !Sub ${AWS::StackName}-DeliveryLogStream
-  DeliveryStream:
+      LogGroupName: !Ref S3DeliveryLogGroup
+      LogStreamName: !Sub ${AWS::StackName}-S3DeliveryLogStream
+  S3DeliveryStream:
     Type: AWS::KinesisFirehose::DeliveryStream
     Properties:
-      DeliveryStreamName: !Sub ${AWS::StackName}-DeliveryStreamS3
+      DeliveryStreamName: !Sub ${AWS::StackName}-S3DeliveryStream
       DeliveryStreamType: DirectPut
       ExtendedS3DestinationConfiguration:
-        BucketARN: !GetAtt DeliveryBucket.Arn
+        BucketARN: !GetAtt S3DeliveryBucket.Arn
         BufferingHints:
           SizeInMBs: 128
           IntervalInSeconds: 60
         CloudWatchLoggingOptions:
           Enabled: true
-          LogGroupName: !Ref DeliveryLogGroup
-          LogStreamName: !Ref DeliveryLogStream
+          LogGroupName: !Ref S3DeliveryLogGroup
+          LogStreamName: !Ref S3DeliveryLogStream
         CompressionFormat: UNCOMPRESSED
         ErrorOutputPrefix: error/!{firehose:random-string}/!{firehose:error-output-type}/!{timestamp:yyyy/MM/dd}/
         Prefix: output/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/
-        RoleARN: !GetAtt DeliveryRole.Arn
-  DeliveryBucket:
+        RoleARN: !GetAtt S3DeliveryRole.Arn
+  S3DeliveryBucket:
     Type: AWS::S3::Bucket
     Properties:
       VersioningConfiguration:
         Status: Enabled
-  DeliveryRole:
+  S3DeliveryRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -61,5 +61,5 @@ Resources:
                   - 's3:ListBucketMultipartUploads'
                   - 's3:PutObject'
                 Resource:
-                  - !GetAtt DeliveryBucket.Arn
-                  - !Join [ "", [ !GetAtt DeliveryBucket.Arn, '/*' ] ]
+                  - !GetAtt S3DeliveryBucket.Arn
+                  - !Join [ "", [ !GetAtt S3DeliveryBucket.Arn, '/*' ] ]
