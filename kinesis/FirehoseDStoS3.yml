@@ -98,3 +98,6 @@ Outputs:
   S3DeliveryBucket:
     Description: S3 Delivery Bucket
     Value: !Ref S3DeliveryBucket
+  S3DeliveryRole:
+    Description: S3 Delivery Role
+    Value: !Ref S3DeliveryRole
