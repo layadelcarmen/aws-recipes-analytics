@@ -95,3 +95,6 @@ Outputs:
   S3DeliveryLogStream:
     Description: Log stream name
     Value: !Ref S3DeliveryLogStream
+  S3DeliveryBucket:
+    Description: S3 Delivery Bucket
+    Value: !Ref S3DeliveryBucket
