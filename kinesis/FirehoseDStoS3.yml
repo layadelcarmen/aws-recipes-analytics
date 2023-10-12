@@ -15,7 +15,7 @@ Resources:
       DeliveryStreamName: ProductDS
       DeliveryStreamType: DirectPut
       ExtendedS3DestinationConfiguration:
-        BucketARN: !Join ["", [ 'arn:aws:s3:::', !Ref DeliveryBucket ] ]
+        BucketARN: !GetAtt DeliveryBucket.Arn
         BufferingHints:
           SizeInMBs: 128
           IntervalInSeconds: 60
