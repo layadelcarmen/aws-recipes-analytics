@@ -31,6 +31,10 @@ Parameters:
     Default: 0.0.0.0/0
     AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
     ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+  DeliveryStreamName:
+    Description: Delivery stream name
+    Type: String
+    Default: S3DeliveryStream
 Resources:
   EC2Instance:
     Type: AWS::EC2::Instance
@@ -107,7 +111,7 @@ Resources:
                           }
                     ]
                   }
-                - DeliveryStream: 'ProductDS'
+                - DeliveryStream: !Ref DeliveryStreamName
               mode: '000644'
               owner: root
               group: root 
@@ -160,8 +164,9 @@ Resources:
               - "firehose:PutRecord"
               - "firehose:PutRecordBatch"
               - "firehose:UpdateDestination"
-            Resource:
-              - !Sub "arn:aws:firehose:${AWS::Region}:${AWS::AccountId}:deliverystream/ProductDS"
+            Resource: !Sub
+              - "arn:aws:firehose:${AWS::Region}:${AWS::AccountId}:deliverystream/${DS}"
+              - DS: !Ref DeliveryStreamName
           - Effect: Allow
             Action: 
               - "cloudwatch:PutMetricData"
