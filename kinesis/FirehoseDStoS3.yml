@@ -48,7 +48,7 @@ Resources:
                 'sts:ExternalId': !Ref 'AWS::AccountId'
       Path: "/"
       Policies:
-        - PolicyName: firehose_delivery_policy
+        - PolicyName: S3-delivery-policy
           PolicyDocument:
             Version: 2012-10-17
             Statement:
