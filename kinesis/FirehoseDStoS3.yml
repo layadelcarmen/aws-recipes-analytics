@@ -29,13 +29,13 @@ Resources:
         CompressionFormat: UNCOMPRESSED
         ErrorOutputPrefix: error/!{firehose:random-string}/!{firehose:error-output-type}/!{timestamp:yyyy/MM/dd}/
         Prefix: output/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/
-        RoleARN: !GetAtt deliveryRole.Arn
+        RoleARN: !GetAtt DeliveryRole.Arn
   DeliveryBucket:
     Type: AWS::S3::Bucket
     Properties:
       VersioningConfiguration:
         Status: Enabled
-  deliveryRole:
+  DeliveryRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
