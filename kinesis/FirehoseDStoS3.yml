@@ -2,7 +2,7 @@ Resources:
   DeliveryErrorLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: /aws/kinesisfirehose/request-logging
+      LogGroupName: !Sub /aws/kinesisfirehose/${AWS::StackName}/request-logging
       RetentionInDays: 14
   DeliveryErrorLogStream:
     Type: AWS::Logs::LogStream
