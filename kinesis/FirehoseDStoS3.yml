@@ -25,7 +25,7 @@ Resources:
           LogStreamName: !Ref S3DeliveryLogStream
         CompressionFormat: UNCOMPRESSED
         ErrorOutputPrefix: error/!{firehose:random-string}/!{firehose:error-output-type}/!{timestamp:yyyy/MM/dd}/
-        Prefix: output/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/
+        Prefix: data/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/
         RoleARN: !GetAtt S3DeliveryRole.Arn
   S3DeliveryBucket:
     Type: AWS::S3::Bucket
