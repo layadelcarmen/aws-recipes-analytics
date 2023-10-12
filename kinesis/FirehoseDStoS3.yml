@@ -9,7 +9,7 @@ Resources:
     Properties:
       LogGroupName: !Ref DeliveryLogGroup
       LogStreamName: !Sub ${AWS::StackName}-DeliveryLogStream
-  FirehoseDS:
+  DeliveryStream:
     Type: AWS::KinesisFirehose::DeliveryStream
     Properties:
       DeliveryStreamName: !Sub ${AWS::StackName}-ProductDS
