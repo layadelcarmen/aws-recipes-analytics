@@ -1,3 +1,11 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Metadata:
+  License: Apache-2.0
+Parameters:
+  LogStreamName:
+    Description: Name of the Log Stream for S3 Delivery
+    Type: String
+    Default: S3DeliveryLogStream
 Resources:
   S3DeliveryLogGroup:
     Type: AWS::Logs::LogGroup
@@ -8,7 +16,9 @@ Resources:
     Type: AWS::Logs::LogStream
     Properties:
       LogGroupName: !Ref S3DeliveryLogGroup
-      LogStreamName: !Sub ${AWS::StackName}-S3DeliveryLogStream
+      LogStreamName: !Sub
+        - '${AWS::StackName}-${LogStreamName}'
+        - LogStreamName: !Ref LogStreamName
   S3DeliveryStream:
     Type: AWS::KinesisFirehose::DeliveryStream
     Properties:
@@ -63,3 +73,10 @@ Resources:
                 Resource:
                   - !GetAtt S3DeliveryBucket.Arn
                   - !Join [ "", [ !GetAtt S3DeliveryBucket.Arn, '/*' ] ]
+
+Outputs:
+  LogStreamName:
+    Description: Log stream name
+    Value: !Sub
+      - '${AWS::StackName}-${LogStreamName}'
+      - LogStreamName: !Ref LogStreamName
