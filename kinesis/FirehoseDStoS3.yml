@@ -2,6 +2,10 @@ AWSTemplateFormatVersion: "2010-09-09"
 Metadata:
   License: Apache-2.0
 Parameters:
+  LogGroupName:
+    Description: Name of the Log Group for S3 Delivery
+    Type: String
+    Default: S3DeliveryLog
   LogStreamName:
     Description: Name of the Log Stream for S3 Delivery
     Type: String
@@ -10,7 +14,9 @@ Resources:
   S3DeliveryLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub /aws/kinesisfirehose/${AWS::StackName}/S3Delivery-stream
+      LogGroupName: !Sub
+        - '/aws/kinesisfirehose/${AWS::StackName}/${LogGroupName}'
+        - LogGroupName: !Ref LogGroupName
       RetentionInDays: 14
   S3DeliveryLogStream:
     Type: AWS::Logs::LogStream
@@ -75,6 +81,9 @@ Resources:
                   - !Join [ "", [ !GetAtt S3DeliveryBucket.Arn, '/*' ] ]
 
 Outputs:
+  S3DeliveryLogGroup:
+    Description: Log group name
+    Value: !Ref S3DeliveryLogGroup
   LogStreamName:
     Description: Log stream name
     Value: !Sub
