@@ -12,7 +12,7 @@ Resources:
   DeliveryStream:
     Type: AWS::KinesisFirehose::DeliveryStream
     Properties:
-      DeliveryStreamName: !Sub ${AWS::StackName}-ProductDS
+      DeliveryStreamName: !Sub ${AWS::StackName}-DeliveryStreamS3
       DeliveryStreamType: DirectPut
       ExtendedS3DestinationConfiguration:
         BucketARN: !GetAtt DeliveryBucket.Arn
