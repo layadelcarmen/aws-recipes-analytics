@@ -31,6 +31,9 @@ Parameters:
     Default: 0.0.0.0/0
     AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
     ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+  LatestAmiId:
+    Type:  'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64'
   DeliveryStreamName:
     Description: Delivery stream name
     Type: String
@@ -41,7 +44,7 @@ Resources:
     Properties:
       InstanceType: !Ref 'InstanceType'
       SecurityGroups: [!Ref 'InstanceSecurityGroup']
-      ImageId: 'ami-067d1e60475437da2'
+      ImageId: !Ref LatestAmiId
       IamInstanceProfile: !Ref LnInstanceProfiler
       UserData: !Base64 
         'Fn::Sub':
