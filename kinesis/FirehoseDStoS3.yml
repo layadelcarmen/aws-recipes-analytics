@@ -101,3 +101,6 @@ Outputs:
   S3DeliveryRole:
     Description: S3 Delivery Role
     Value: !Ref S3DeliveryRole
+  S3DeliveryStream:
+    Description: S3 Delivery Stream
+    Value: !Ref S3DeliveryStream
