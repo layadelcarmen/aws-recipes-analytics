@@ -31,13 +31,20 @@ Parameters:
     Default: 0.0.0.0/0
     AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
     ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+  LatestAmiId:
+    Type:  'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64'
+  DeliveryStreamName:
+    Description: Delivery stream name
+    Type: String
+    Default: S3DeliveryStream
 Resources:
   EC2Instance:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref 'InstanceType'
       SecurityGroups: [!Ref 'InstanceSecurityGroup']
-      ImageId: 'ami-067d1e60475437da2'
+      ImageId: !Ref LatestAmiId
       IamInstanceProfile: !Ref LnInstanceProfiler
       UserData: !Base64 
         'Fn::Sub':
@@ -63,9 +70,6 @@ Resources:
           InstallAndConfigure:
             - "installagent"
             - "makedir"
-            - "get_file"
-            - "unzip_file_zip"
-            - "change_permisses"
             - "config_kinesis_agent"
             - "start_service_kinesis_agent"
             - "run_python_file"                      
@@ -79,48 +83,44 @@ Resources:
             test02: 
               command: "sudo mkdir /var/log/cadabra" 
               cwd: "~"
-        get_file: 
-          commands: 
-            download_file: 
-              command: "wget http://media.sundog-soft.com/AWSBigData/LogGenerator.zip"
-              cwd: "/home/ec2-user/"
-        unzip_file_zip: 
-          commands:               
-            unzip_file: 
-              command: "unzip LogGenerator.zip" 
-              cwd: "/home/ec2-user"
-        change_permisses: 
-          commands:                 
-            change_permiss: 
-              command: "chmod a+x LogGenerator.py" 
-              cwd: "/home/ec2-user"                                       
         config_kinesis_agent:
           files:
             /etc/aws-kinesis/agent.json:
-              content: !Sub
-                - |
-                  {
-                    "flows": [
-                          {
-                              "filePattern": "/var/log/cadabra/*.log",
-                              "deliveryStream": "${DeliveryStream}"
-                          }
-                    ]
-                  }
-                - DeliveryStream: 'ProductDS'
+              content: |
+                {
+                  "flows": [
+                        {
+                            "filePattern": "/var/log/cadabra/*.log",
+                            "deliveryStream": "{{DS}}"
+                        }
+                  ]
+                }
+              context:
+                DS: !Ref DeliveryStreamName
               mode: '000644'
               owner: root
-              group: root 
-        start_service_kinesis_agent: 
-          commands: 
-            start_kinesis_agent: 
-              command: "sudo service aws-kinesis-agent start" 
-              cwd: "/home/ec2-user" 
-        run_python_file: 
-          commands: 
-            py_logs: 
-              command: "sudo ./LogGenerator.py 500000" 
-              cwd: "/home/ec2-user"                                          
+              group: root
+        start_service_kinesis_agent:
+          commands:
+            start_kinesis_agent:
+              command: "sudo service aws-kinesis-agent start"
+              cwd: "/home/ec2-user"
+        run_python_file:
+          files:
+            /home/ec2-user/generator_setup:
+              content: !Sub |
+                #!/bin/bash -x
+                wget http://media.sundog-soft.com/AWSBigData/LogGenerator.zip
+                unzip LogGenerator.zip
+                chmod a+x LogGenerator.py
+              mode: '000555'
+          commands:
+            01_setup_generator:
+              command: "./generator_setup"
+              cwd: "/home/ec2-user"
+            02_py_logs:
+              command: "./LogGenerator.py 500000"
+              cwd: "/home/ec2-user"
   InstanceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -138,7 +138,7 @@ Resources:
   LnDataProducerRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: data-producer-role-kinesis-delivery-stream
+      RoleName: !Sub ${AWS::StackName}-data-producer-role-kds
       AssumeRolePolicyDocument:
         Statement:
           -
@@ -160,8 +160,9 @@ Resources:
               - "firehose:PutRecord"
               - "firehose:PutRecordBatch"
               - "firehose:UpdateDestination"
-            Resource:
-              - !Sub "arn:aws:firehose:${AWS::Region}:${AWS::AccountId}:deliverystream/ProductDS"
+            Resource: !Sub
+              - "arn:aws:firehose:${AWS::Region}:${AWS::AccountId}:deliverystream/${DS}"
+              - DS: !Ref DeliveryStreamName
           - Effect: Allow
             Action: 
               - "cloudwatch:PutMetricData"
@@ -176,10 +177,10 @@ Outputs:
     Value: !Ref 'EC2Instance'
   AZ:
     Description: Availability Zone of the newly created EC2 instance
-    Value: !GetAtt [EC2Instance, AvailabilityZone]
+    Value: !GetAtt EC2Instance.AvailabilityZone
   PublicDNS:
     Description: Public DNSName of the newly created EC2 instance
-    Value: !GetAtt [EC2Instance, PublicDnsName]
+    Value: !GetAtt EC2Instance.PublicDnsName
   PublicIP:
     Description: Public IP address of the newly created EC2 instance
-    Value: !GetAtt [EC2Instance, PublicIp]
+    Value: !GetAtt EC2Instance.PublicIp
