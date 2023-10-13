@@ -114,14 +114,12 @@ Resources:
                 unzip LogGenerator.zip
                 chmod a+x LogGenerator.py
               mode: '000555'
-              owner: root
-              group: root
           commands:
             01_setup_generator:
-              command: "sudo ./generator_setup"
+              command: "./generator_setup"
               cwd: "/home/ec2-user"
             02_py_logs:
-              command: "sudo ./LogGenerator.py 500000"
+              command: "./LogGenerator.py 500000"
               cwd: "/home/ec2-user"
   InstanceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
