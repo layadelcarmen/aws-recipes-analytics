@@ -70,8 +70,7 @@ Resources:
           InstallAndConfigure:
             - "installagent"
             - "makedir"
-            - "config_kinesis_agent"
-            - "start_service_kinesis_agent"
+            - "enable_kinesis_agent"
             - "run_python_file"                      
         installagent: 
           commands: 
@@ -83,7 +82,7 @@ Resources:
             test02: 
               command: "sudo mkdir /var/log/cadabra" 
               cwd: "~"
-        config_kinesis_agent:
+        enable_kinesis_agent:
           files:
             /etc/aws-kinesis/agent.json:
               content: |
@@ -100,7 +99,6 @@ Resources:
               mode: '000644'
               owner: root
               group: root
-        start_service_kinesis_agent:
           commands:
             start_kinesis_agent:
               command: "sudo service aws-kinesis-agent start"
