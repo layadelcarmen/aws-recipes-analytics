@@ -68,21 +68,18 @@ Resources:
       AWS::CloudFormation::Init:
         configSets:
           InstallAndConfigure:
-            - "installagent"
             - "makedir"
             - "enable_kinesis_agent"
             - "run_python_file"                      
-        installagent: 
-          commands: 
-            test: 
-              command: "sudo yum install --assumeyes aws-kinesis-agent"
-              cwd: "~"
         makedir: 
           commands: 
             test02: 
               command: "sudo mkdir /var/log/cadabra" 
               cwd: "~"
         enable_kinesis_agent:
+          packages:
+            yum:
+              aws-kinesis-agent: []
           files:
             /etc/aws-kinesis/agent.json:
               content: |
