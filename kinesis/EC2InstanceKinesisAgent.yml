@@ -70,9 +70,6 @@ Resources:
           InstallAndConfigure:
             - "installagent"
             - "makedir"
-            - "get_file"
-            - "unzip_file_zip"
-            - "change_permisses"
             - "config_kinesis_agent"
             - "start_service_kinesis_agent"
             - "run_python_file"                      
@@ -86,21 +83,6 @@ Resources:
             test02: 
               command: "sudo mkdir /var/log/cadabra" 
               cwd: "~"
-        get_file: 
-          commands: 
-            download_file: 
-              command: "wget http://media.sundog-soft.com/AWSBigData/LogGenerator.zip"
-              cwd: "/home/ec2-user/"
-        unzip_file_zip: 
-          commands:               
-            unzip_file: 
-              command: "unzip LogGenerator.zip" 
-              cwd: "/home/ec2-user"
-        change_permisses: 
-          commands:                 
-            change_permiss: 
-              command: "chmod a+x LogGenerator.py" 
-              cwd: "/home/ec2-user"                                       
         config_kinesis_agent:
           files:
             /etc/aws-kinesis/agent.json:
@@ -117,17 +99,35 @@ Resources:
                 - DeliveryStream: !Ref DeliveryStreamName
               mode: '000644'
               owner: root
-              group: root 
-        start_service_kinesis_agent: 
-          commands: 
-            start_kinesis_agent: 
-              command: "sudo service aws-kinesis-agent start" 
-              cwd: "/home/ec2-user" 
-        run_python_file: 
-          commands: 
-            py_logs: 
-              command: "sudo ./LogGenerator.py 500000" 
-              cwd: "/home/ec2-user"                                          
+              group: root
+        start_service_kinesis_agent:
+          commands:
+            start_kinesis_agent:
+              command: "sudo service aws-kinesis-agent start"
+              cwd: "/home/ec2-user"
+        run_python_file:
+          files:
+            /home/ec2-user/generator_setup:
+              content: !Sub
+                - >
+                  #!/bin/bash -x
+
+                  wget http://media.sundog-soft.com/AWSBigData/LogGenerator.zip
+
+                  unzip LogGenerator.zip
+
+                  chmod a+x LogGenerator.py
+                - {}
+              mode: '000555'
+              owner: root
+              group: root
+          commands:
+            01_setup_generator:
+              command: "sudo ./generator_setup"
+              cwd: "/home/ec2-user"
+            02_py_logs:
+              command: "sudo ./LogGenerator.py 500000"
+              cwd: "/home/ec2-user"
   InstanceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
