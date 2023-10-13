@@ -1,41 +1,62 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Metadata:
+  License: Apache-2.0
+Parameters:
+  LogGroupName:
+    Description: Name of the Log Group for S3 Delivery
+    Type: String
+    Default: S3DeliveryLog
+  LogStreamName:
+    Description: Name of the Log Stream for S3 Delivery
+    Type: String
+    Default: S3DeliveryLogStream
+  BufferSize:
+    Description: Buffering Hints size in MB
+    Type: Number
+    Default: 128
+  BufferInterval:
+    Description: Buffering Hints interval in seconds
+    Type: Number
+    Default: 60
 Resources:
-  DeliveryErrorLogGroup:
+  S3DeliveryLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: /aws/kinesisfirehose/request-logging
+      LogGroupName: !Sub
+        - '/aws/kinesisfirehose/${AWS::StackName}/${LogGroupName}'
+        - LogGroupName: !Ref LogGroupName
       RetentionInDays: 14
-  DeliveryErrorLogStream:
+  S3DeliveryLogStream:
     Type: AWS::Logs::LogStream
     Properties:
-      LogGroupName: !Ref DeliveryErrorLogGroup
-      LogStreamName: S3Delivery
-  FirehoseDS:
+      LogGroupName: !Ref S3DeliveryLogGroup
+      LogStreamName: !Sub
+        - '${AWS::StackName}-${LogStreamName}'
+        - LogStreamName: !Ref LogStreamName
+  S3DeliveryStream:
     Type: AWS::KinesisFirehose::DeliveryStream
     Properties:
-      DeliveryStreamName: ProductDS
+      DeliveryStreamName: !Sub ${AWS::StackName}-S3DeliveryStream
       DeliveryStreamType: DirectPut
       ExtendedS3DestinationConfiguration:
-        BucketARN: !Join
-          - ''
-          - - 'arn:aws:s3:::'
-            - !Ref s3bucket
+        BucketARN: !GetAtt S3DeliveryBucket.Arn
         BufferingHints:
-          SizeInMBs: 128
-          IntervalInSeconds: 60
+          SizeInMBs: !Ref BufferSize
+          IntervalInSeconds: !Ref BufferInterval
         CloudWatchLoggingOptions:
           Enabled: true
-          LogGroupName: !Ref DeliveryErrorLogGroup
-          LogStreamName: !Ref DeliveryErrorLogStream
+          LogGroupName: !Ref S3DeliveryLogGroup
+          LogStreamName: !Ref S3DeliveryLogStream
         CompressionFormat: UNCOMPRESSED
         ErrorOutputPrefix: error/!{firehose:random-string}/!{firehose:error-output-type}/!{timestamp:yyyy/MM/dd}/
-        Prefix: output/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/
-        RoleARN: !GetAtt deliveryRole.Arn
-  s3bucket:
+        Prefix: data/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/
+        RoleARN: !GetAtt S3DeliveryRole.Arn
+  S3DeliveryBucket:
     Type: AWS::S3::Bucket
     Properties:
       VersioningConfiguration:
         Status: Enabled
-  deliveryRole:
+  S3DeliveryRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -51,7 +72,7 @@ Resources:
                 'sts:ExternalId': !Ref 'AWS::AccountId'
       Path: "/"
       Policies:
-        - PolicyName: firehose_delivery_policy
+        - PolicyName: S3-delivery-policy
           PolicyDocument:
             Version: 2012-10-17
             Statement:
@@ -64,12 +85,22 @@ Resources:
                   - 's3:ListBucketMultipartUploads'
                   - 's3:PutObject'
                 Resource:
-                  - !Join
-                    - ''
-                    - - 'arn:aws:s3:::'
-                      - !Ref s3bucket
-                  - !Join
-                    - ''
-                    - - 'arn:aws:s3:::'
-                      - !Ref s3bucket
-                      - '/*'
+                  - !GetAtt S3DeliveryBucket.Arn
+                  - !Join [ "", [ !GetAtt S3DeliveryBucket.Arn, '/*' ] ]
+
+Outputs:
+  S3DeliveryLogGroup:
+    Description: Log group name
+    Value: !Ref S3DeliveryLogGroup
+  S3DeliveryLogStream:
+    Description: Log stream name
+    Value: !Ref S3DeliveryLogStream
+  S3DeliveryBucket:
+    Description: S3 Delivery Bucket
+    Value: !Ref S3DeliveryBucket
+  S3DeliveryRole:
+    Description: S3 Delivery Role
+    Value: !Ref S3DeliveryRole
+  S3DeliveryStream:
+    Description: S3 Delivery Stream
+    Value: !Ref S3DeliveryStream
