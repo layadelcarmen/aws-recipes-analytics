@@ -86,17 +86,17 @@ Resources:
         config_kinesis_agent:
           files:
             /etc/aws-kinesis/agent.json:
-              content: !Sub
-                - |
-                  {
-                    "flows": [
-                          {
-                              "filePattern": "/var/log/cadabra/*.log",
-                              "deliveryStream": "${DeliveryStream}"
-                          }
-                    ]
-                  }
-                - DeliveryStream: !Ref DeliveryStreamName
+              content: |
+                {
+                  "flows": [
+                        {
+                            "filePattern": "/var/log/cadabra/*.log",
+                            "deliveryStream": "{{DS}}"
+                        }
+                  ]
+                }
+              context:
+                DS: !Ref DeliveryStreamName
               mode: '000644'
               owner: root
               group: root
