@@ -145,7 +145,7 @@ Resources:
   LnDataProducerRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: data-producer-role-kinesis-delivery-stream
+      RoleName: !Sub ${AWS::StackName}-data-producer-role-kds
       AssumeRolePolicyDocument:
         Statement:
           -
