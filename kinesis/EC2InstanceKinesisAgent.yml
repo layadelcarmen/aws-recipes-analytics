@@ -108,16 +108,11 @@ Resources:
         run_python_file:
           files:
             /home/ec2-user/generator_setup:
-              content: !Sub
-                - >
-                  #!/bin/bash -x
-
-                  wget http://media.sundog-soft.com/AWSBigData/LogGenerator.zip
-
-                  unzip LogGenerator.zip
-
-                  chmod a+x LogGenerator.py
-                - {}
+              content: !Sub |
+                #!/bin/bash -x
+                wget http://media.sundog-soft.com/AWSBigData/LogGenerator.zip
+                unzip LogGenerator.zip
+                chmod a+x LogGenerator.py
               mode: '000555'
               owner: root
               group: root
