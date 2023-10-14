@@ -2,10 +2,10 @@ AWSTemplateFormatVersion: '2010-09-09'
 Metadata:
   License: Apache-2.0
 Description: 'AWS CloudFormation Sample Template EC2InstanceWithSecurityGroupSample:
-  Create an Amazon EC2 instance running the Amazon Linux AMI. 
+  Create an Amazon EC2 instance running the Amazon Linux AMI.
   This example creates an EC2 security group for the instance to give you SSH access.
   Kinesis Agent is installed, configured and started to process logs data created for a python app.
-   **WARNING** This template creates an Amazon EC2 instance. 
+   **WARNING** This template creates an Amazon EC2 instance.
   You will be billed for the AWS resources used if you create a stack
   from this template.'
 Parameters:
@@ -46,16 +46,16 @@ Resources:
       SecurityGroups: [!Ref 'InstanceSecurityGroup']
       ImageId: !Ref LatestAmiId
       IamInstanceProfile: !Ref LnInstanceProfiler
-      UserData: !Base64 
+      UserData: !Base64
         'Fn::Sub':
           - >
             #!/bin/bash -x
 
             # Install the files and packages from the metadata
 
-            /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} 
-            --resource EC2Instance 
-            --configsets InstallAndConfigure 
+            /opt/aws/bin/cfn-init -v --stack ${AWS::StackName}
+            --resource EC2Instance
+            --configsets InstallAndConfigure
             --region ${AWS::Region}
 
             # Signal the status from cfn-init
@@ -162,12 +162,12 @@ Resources:
               - "arn:aws:firehose:${AWS::Region}:${AWS::AccountId}:deliverystream/${DS}"
               - DS: !Ref DeliveryStreamName
           - Effect: Allow
-            Action: 
+            Action:
               - "cloudwatch:PutMetricData"
-            Resource: '*'                  
+            Resource: '*'
       PolicyName: "kinesisds-put-records-policy"
       Roles:
-        - !Ref LnDataProducerRole                          
+        - !Ref LnDataProducerRole
 
 Outputs:
   InstanceId:
