@@ -68,14 +68,8 @@ Resources:
       AWS::CloudFormation::Init:
         configSets:
           InstallAndConfigure:
-            - "makedir"
             - "enable_kinesis_agent"
             - "run_python_file"                      
-        makedir: 
-          commands: 
-            test02: 
-              command: "sudo mkdir /var/log/cadabra" 
-              cwd: "~"
         enable_kinesis_agent:
           packages:
             yum:
@@ -96,6 +90,9 @@ Resources:
               mode: '000644'
               owner: root
               group: root
+          commands:
+            make_log_stream_dir:
+              command: "sudo mkdir /var/log/cadabra"
           services:
             systemd:
               aws-kinesis-agent:
