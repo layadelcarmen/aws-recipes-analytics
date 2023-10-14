@@ -69,7 +69,7 @@ Resources:
         configSets:
           InstallAndConfigure:
             - "enable_kinesis_agent"
-            - "run_python_file"                      
+            - "setup_run_data_generator"
         enable_kinesis_agent:
           packages:
             yum:
@@ -103,7 +103,7 @@ Resources:
                 packages:
                   yum:
                     - "aws-kinesis-agent"
-        run_python_file:
+        setup_run_data_generator:
           files:
             /home/ec2-user/generator_setup:
               content: !Sub |
@@ -116,7 +116,7 @@ Resources:
             01_setup_generator:
               command: "./generator_setup"
               cwd: "/home/ec2-user"
-            02_py_logs:
+            02_run_generator:
               command: "./LogGenerator.py 500000"
               cwd: "/home/ec2-user"
   InstanceSecurityGroup:
