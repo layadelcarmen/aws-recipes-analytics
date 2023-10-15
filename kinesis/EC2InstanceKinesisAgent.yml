@@ -109,6 +109,7 @@ Resources:
               content: !Sub |
                 #!/usr/bin/env python3
 
+                import argparse
                 import datetime
                 import time
                 import json
@@ -129,21 +130,28 @@ Resources:
                       'event_time': datetime.datetime.now().isoformat()
                   }
 
-                def save_data():
-                  for file_id in range(500):
-                    data_path = time.strftime(f"/var/log/cadabra/sensor_data_{file_id:06d}.log")
+                def save_data(file_path, f_prefix, f_suffix, cnt_files, cnt_lines):
+                  for file_id in range(cnt_files):
+                    data_path = time.strftime(f"{file_path}/{f_prefix}_{file_id:06d}{f_suffix}")
                     with open(data_path, 'w') as data_file:
-                      for line in range(100):
+                      for line in range(cnt_lines):
                         data = get_random_data()
                         json.dump(data, data_file)
                         data_file.write('\n')
 
                 if __name__ == '__main__':
-                  save_data()
+                  parser = argparse.ArgumentParser()
+                  parser.add_argument('file_path', help='path of the files to generate')
+                  parser.add_argument('f_prefix', help='prefix of file names')
+                  parser.add_argument('f_suffix', help='suffix of file names')
+                  parser.add_argument('cnt_files', help='amount of files to generate', type=int)
+                  parser.add_argument('cnt_lines', help='amount of lines by file', type=int)
+                  args = parser.parse_args()
+                  save_data(args.file_path, args.f_prefix, args.f_suffix, args.cnt_files, args.cnt_lines)
               mode: '000555'
           commands:
             run_generator:
-              command: "./LogGenerator.py"
+              command: "./LogGenerator.py /var/log/cadabra sensors_data .log 50 100"
               cwd: "/home/ec2-user"
   InstanceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
