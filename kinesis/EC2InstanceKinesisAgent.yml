@@ -2,10 +2,10 @@ AWSTemplateFormatVersion: '2010-09-09'
 Metadata:
   License: Apache-2.0
 Description: 'AWS CloudFormation Sample Template EC2InstanceWithSecurityGroupSample:
-  Create an Amazon EC2 instance running the Amazon Linux AMI. 
+  Create an Amazon EC2 instance running the Amazon Linux AMI.
   This example creates an EC2 security group for the instance to give you SSH access.
   Kinesis Agent is installed, configured and started to process logs data created for a python app.
-   **WARNING** This template creates an Amazon EC2 instance. 
+   **WARNING** This template creates an Amazon EC2 instance.
   You will be billed for the AWS resources used if you create a stack
   from this template.'
 Parameters:
@@ -46,16 +46,16 @@ Resources:
       SecurityGroups: [!Ref 'InstanceSecurityGroup']
       ImageId: !Ref LatestAmiId
       IamInstanceProfile: !Ref LnInstanceProfiler
-      UserData: !Base64 
+      UserData: !Base64
         'Fn::Sub':
           - >
             #!/bin/bash -x
 
             # Install the files and packages from the metadata
 
-            /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} 
-            --resource EC2Instance 
-            --configsets InstallAndConfigure 
+            /opt/aws/bin/cfn-init -v --stack ${AWS::StackName}
+            --resource EC2Instance
+            --configsets InstallAndConfigure
             --region ${AWS::Region}
 
             # Signal the status from cfn-init
@@ -68,14 +68,8 @@ Resources:
       AWS::CloudFormation::Init:
         configSets:
           InstallAndConfigure:
-            - "makedir"
             - "enable_kinesis_agent"
-            - "run_python_file"                      
-        makedir: 
-          commands: 
-            test02: 
-              command: "sudo mkdir /var/log/cadabra" 
-              cwd: "~"
+            - "setup_run_data_generator"
         enable_kinesis_agent:
           packages:
             yum:
@@ -96,6 +90,9 @@ Resources:
               mode: '000644'
               owner: root
               group: root
+          commands:
+            make_log_stream_dir:
+              command: "sudo mkdir /var/log/cadabra"
           services:
             systemd:
               aws-kinesis-agent:
@@ -106,7 +103,7 @@ Resources:
                 packages:
                   yum:
                     - "aws-kinesis-agent"
-        run_python_file:
+        setup_run_data_generator:
           files:
             /home/ec2-user/generator_setup:
               content: !Sub |
@@ -119,7 +116,7 @@ Resources:
             01_setup_generator:
               command: "./generator_setup"
               cwd: "/home/ec2-user"
-            02_py_logs:
+            02_run_generator:
               command: "./LogGenerator.py 500000"
               cwd: "/home/ec2-user"
   InstanceSecurityGroup:
@@ -165,12 +162,12 @@ Resources:
               - "arn:aws:firehose:${AWS::Region}:${AWS::AccountId}:deliverystream/${DS}"
               - DS: !Ref DeliveryStreamName
           - Effect: Allow
-            Action: 
+            Action:
               - "cloudwatch:PutMetricData"
-            Resource: '*'                  
+            Resource: '*'
       PolicyName: "kinesisds-put-records-policy"
       Roles:
-        - !Ref LnDataProducerRole                          
+        - !Ref LnDataProducerRole
 
 Outputs:
   InstanceId:
