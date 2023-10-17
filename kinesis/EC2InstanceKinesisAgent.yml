@@ -41,7 +41,7 @@ Parameters:
   DataPath:
     Description: data path to the kinesis agent input
     Type: String
-    Default: /var/log/cadabra
+    Default: /var/log/sensors
   FilenamePrefix:
     Description: prefix for the data file names
     Type: String
