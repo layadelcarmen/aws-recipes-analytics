@@ -38,6 +38,23 @@ Parameters:
     Description: Delivery stream name
     Type: String
     Default: S3DeliveryStream
+  DataPath:
+    Description: data path to the kinesis agent input
+    Type: String
+    Default: /var/log/cadabra
+  FilenamePrefix:
+    Description: prefix for the data file names
+    Type: String
+    Default: sensors_data
+  FilenameSuffix:
+    Description: suffix for the data file names
+    Type: String
+    Default: .log
+  CntLinesPerGeneration:
+    Description: amount of lines per data generation
+    Type: Number
+    Default: 100
+
 Resources:
   EC2Instance:
     Type: AWS::EC2::Instance
@@ -80,19 +97,22 @@ Resources:
                 {
                   "flows": [
                         {
-                            "filePattern": "/var/log/cadabra/*.log",
+                            "filePattern": "{{DataPath}}/{{FnamePrefix}}*{{FnameSuffix}}",
                             "deliveryStream": "{{DS}}"
                         }
                   ]
                 }
               context:
                 DS: !Ref DeliveryStreamName
+                DataPath: !Ref DataPath
+                FnamePrefix: !Ref FilenamePrefix
+                FnameSuffix: !Ref FilenameSuffix
               mode: '000644'
               owner: root
               group: root
           commands:
             make_log_stream_dir:
-              command: "sudo mkdir /var/log/cadabra"
+              command: !Sub [ "sudo mkdir ${DataPath}", { DataPath: !Ref DataPath } ]
           services:
             systemd:
               aws-kinesis-agent:
@@ -158,7 +178,7 @@ Resources:
                   parser.add_argument('file_path', help='path of the files to generate')
                   parser.add_argument('f_prefix', help='prefix of file names')
                   parser.add_argument('f_suffix', help='suffix of file names')
-                  parser.add_argument('cnt_lines', help='amount of lines by file', type=int)
+                  parser.add_argument('cnt_lines', help='amount of lines per addition', type=int)
                   args = parser.parse_args()
                   signal_handler = SignalHandler()
                   while signal_handler.can_run():
@@ -166,18 +186,23 @@ Resources:
                     time.sleep(random.uniform(2, 3))
               mode: '000555'
             /lib/systemd/system/log-generator.service:
-              content: !Sub |
-                [Unit]
-                Description=Log generator service
-                After=aws-kinesis-agent.service
-                
-                [Service]
-                Type=simple
-                Restart=always
-                ExecStart=/usr/bin/python3 /home/ec2-user/log_generator.py /var/log/cadabra sensors_data .log 100
-                
-                [Install]
-                WantedBy=multi-user.target
+              content: !Sub
+                - |
+                  [Unit]
+                  Description=Log generator service
+                  After=aws-kinesis-agent.service
+                  
+                  [Service]
+                  Type=simple
+                  Restart=always
+                  ExecStart=/usr/bin/python3 /home/ec2-user/log_generator.py ${DataPath} ${FnamePrefix} ${FnameSuffix} ${CntLines}
+                  
+                  [Install]
+                  WantedBy=multi-user.target
+                - DataPath: !Ref DataPath
+                  FnamePrefix: !Ref FilenamePrefix
+                  FnameSuffix: !Ref FilenameSuffix
+                  CntLines: !Ref CntLinesPerGeneration
           services:
             systemd:
               log-generator:
