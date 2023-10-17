@@ -178,11 +178,14 @@ Resources:
                 
                 [Install]
                 WantedBy=multi-user.target
-          commands:
-            01_enable_log_generator:
-              command: systemctl enable log-generator.service
-            02_start_log_generator:
-              command: systemctl start log-generator.service
+          services:
+            systemd:
+              log-generator:
+                enabled: "true"
+                ensureRunning: "true"
+                files:
+                  - "/home/ec2-user/log_generator.py"
+
   InstanceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
