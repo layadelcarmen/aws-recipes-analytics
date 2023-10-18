@@ -38,6 +38,23 @@ Parameters:
     Description: Delivery stream name
     Type: String
     Default: S3DeliveryStream
+  DataPath:
+    Description: data path to the kinesis agent input
+    Type: String
+    Default: /var/log/sensors
+  FilenamePrefix:
+    Description: prefix for the data file names
+    Type: String
+    Default: sensors_data
+  FilenameSuffix:
+    Description: suffix for the data file names
+    Type: String
+    Default: .log
+  CntLinesPerGeneration:
+    Description: amount of lines per data generation
+    Type: Number
+    Default: 100
+
 Resources:
   EC2Instance:
     Type: AWS::EC2::Instance
@@ -47,29 +64,27 @@ Resources:
       ImageId: !Ref LatestAmiId
       IamInstanceProfile: !Ref LnInstanceProfiler
       UserData: !Base64
-        'Fn::Sub':
-          - >
-            #!/bin/bash -x
+        "Fn::Sub": >
+          #!/bin/bash -x
 
-            # Install the files and packages from the metadata
+          # Install the files and packages from the metadata
 
-            /opt/aws/bin/cfn-init -v --stack ${AWS::StackName}
-            --resource EC2Instance
-            --configsets InstallAndConfigure
-            --region ${AWS::Region}
+          /opt/aws/bin/cfn-init -v --stack ${AWS::StackName}
+          --resource EC2Instance
+          --configsets InstallAndConfigure
+          --region ${AWS::Region}
 
-            # Signal the status from cfn-init
+          # Signal the status from cfn-init
 
-            /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource
-            EC2Instance --region ${AWS::Region}
-          - {}
+          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource
+          EC2Instance --region ${AWS::Region}
 
     Metadata:
       AWS::CloudFormation::Init:
         configSets:
           InstallAndConfigure:
             - "enable_kinesis_agent"
-            - "setup_run_data_generator"
+            - "enable_log_generator"
         enable_kinesis_agent:
           packages:
             yum:
@@ -80,19 +95,22 @@ Resources:
                 {
                   "flows": [
                         {
-                            "filePattern": "/var/log/cadabra/*.log",
+                            "filePattern": "{{DataPath}}/{{FnamePrefix}}*{{FnameSuffix}}",
                             "deliveryStream": "{{DS}}"
                         }
                   ]
                 }
               context:
                 DS: !Ref DeliveryStreamName
+                DataPath: !Ref DataPath
+                FnamePrefix: !Ref FilenamePrefix
+                FnameSuffix: !Ref FilenameSuffix
               mode: '000644'
               owner: root
               group: root
           commands:
             make_log_stream_dir:
-              command: "sudo mkdir /var/log/cadabra"
+              command: !Sub [ "sudo mkdir ${DataPath}", { DataPath: !Ref DataPath } ]
           services:
             systemd:
               aws-kinesis-agent:
@@ -103,22 +121,94 @@ Resources:
                 packages:
                   yum:
                     - "aws-kinesis-agent"
-        setup_run_data_generator:
+        enable_log_generator:
           files:
-            /home/ec2-user/generator_setup:
+            /home/ec2-user/log_generator.py:
               content: !Sub |
-                #!/bin/bash -x
-                wget http://media.sundog-soft.com/AWSBigData/LogGenerator.zip
-                unzip LogGenerator.zip
-                chmod a+x LogGenerator.py
+                #!/usr/bin/env python3
+
+                import argparse
+                import datetime
+                import time
+                import json
+                import random
+                import signal
+
+                class SignalHandler:
+                    shutdown_requested = False
+
+                    def __init__(self):
+                        signal.signal(signal.SIGINT, self.request_shutdown)
+                        signal.signal(signal.SIGTERM, self.request_shutdown)
+
+                    def request_shutdown(self, *args):
+                        print('Request to shutdown received, stopping')
+                        self.shutdown_requested = True
+
+                    def can_run(self):
+                        return not self.shutdown_requested
+
+                def get_random_data():
+                  current_temperature = round(10 + random.random() * 170, 2)
+                  if current_temperature > 160:
+                      status = 'ERROR'
+                  elif current_temperature > 140 or random.randrange(1, 100) > 80:
+                      status = random.choice(['WARNING','ERROR'])
+                  else:
+                      status = 'OK'
+                  return {
+                      'sensor_id': random.randrange(1, 100),
+                      'current_temperature': current_temperature,
+                      'status': status,
+                      'event_time': datetime.datetime.now().isoformat()
+                  }
+                
+                def save_data(file_path, f_prefix, f_suffix, cnt_lines):
+                  data_path = time.strftime(f"{file_path}/{f_prefix}_%Y%m%d-%H%M%S{f_suffix}")
+                  with open(data_path, 'a') as data_file:
+                    for line in range(cnt_lines):
+                      data = get_random_data()
+                      json.dump(data, data_file)
+                      data_file.write('\n')
+                
+                if __name__ == '__main__':
+                  parser = argparse.ArgumentParser()
+                  parser.add_argument('file_path', help='path of the files to generate')
+                  parser.add_argument('f_prefix', help='prefix of file names')
+                  parser.add_argument('f_suffix', help='suffix of file names')
+                  parser.add_argument('cnt_lines', help='amount of lines per addition', type=int)
+                  args = parser.parse_args()
+                  signal_handler = SignalHandler()
+                  while signal_handler.can_run():
+                    save_data(args.file_path, args.f_prefix, args.f_suffix, args.cnt_lines)
+                    time.sleep(random.uniform(2, 3))
               mode: '000555'
-          commands:
-            01_setup_generator:
-              command: "./generator_setup"
-              cwd: "/home/ec2-user"
-            02_run_generator:
-              command: "./LogGenerator.py 500000"
-              cwd: "/home/ec2-user"
+            /lib/systemd/system/log-generator.service:
+              content: !Sub
+                - |
+                  [Unit]
+                  Description=Log generator service
+                  After=aws-kinesis-agent.service
+                  
+                  [Service]
+                  Type=simple
+                  Restart=always
+                  ExecStart=/usr/bin/python3 /home/ec2-user/log_generator.py ${DataPath} ${FnamePrefix} ${FnameSuffix} ${CntLines}
+                  
+                  [Install]
+                  WantedBy=multi-user.target
+                - DataPath: !Ref DataPath
+                  FnamePrefix: !Ref FilenamePrefix
+                  FnameSuffix: !Ref FilenameSuffix
+                  CntLines: !Ref CntLinesPerGeneration
+          services:
+            systemd:
+              log-generator:
+                enabled: "true"
+                ensureRunning: "true"
+                files:
+                  - "/home/ec2-user/log_generator.py"
+
   InstanceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
