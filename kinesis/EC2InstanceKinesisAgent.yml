@@ -89,41 +89,20 @@ Resources:
         enable_cfn_hup:
           files:
             /etc/cfn/cfn-hup.conf:
-              content: !Join
-                - ''
-                - - |
-                    [main]
-                  - stack=
-                  - !Ref 'AWS::StackId'
-                  - |+
-
-                  - region=
-                  - !Ref 'AWS::Region'
-                  - |+
-
+              content: !Sub |
+                [main]
+                stack=${AWS::StackId}
+                region=${AWS::Region}
               mode: '000400'
               owner: root
               group: root
             /etc/cfn/hooks.d/cfn-auto-reloader.conf:
-              content: !Join
-                - ''
-                - - |
-                    [cfn-auto-reloader-hook]
-                  - |
-                    triggers=post.update
-                  - >
-                    path=Resources.EC2Instance.Metadata.AWS::CloudFormation::Init
-                  - 'action=/opt/aws/bin/cfn-init -v '
-                  - '         --stack '
-                  - !Ref 'AWS::StackName'
-                  - '         --resource EC2Instance '
-                  - '         --configsets InstallAndConfigure '
-                  - '         --region '
-                  - !Ref 'AWS::Region'
-                  - |+
-
-                  - |
-                    runas=root
+              content: !Sub |
+                [cfn-auto-reloader-hook]
+                triggers=post.update
+                path=Resources.EC2Instance.Metadata.AWS::CloudFormation::Init
+                action=/opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource EC2Instance --configsets InstallAndConfigure --region ${AWS::Region}
+                runas=root
               mode: '000400'
               owner: root
               group: root
