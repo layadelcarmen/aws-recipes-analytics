@@ -53,22 +53,20 @@ Resources:
       ImageId: !Ref LatestAmiId
       IamInstanceProfile: !Ref LnInstanceProfiler
       UserData: !Base64
-        'Fn::Sub':
-          - >
-            #!/bin/bash -x
+        "Fn::Sub": >
+          #!/bin/bash -x
 
-            # Install the files and packages from the metadata
+          # Install the files and packages from the metadata
 
-            /opt/aws/bin/cfn-init -v --stack ${AWS::StackName}
-            --resource EC2Instance
-            --configsets InstallAndConfigure
-            --region ${AWS::Region}
+          /opt/aws/bin/cfn-init -v --stack ${AWS::StackName}
+          --resource EC2Instance
+          --configsets InstallAndConfigure
+          --region ${AWS::Region}
 
-            # Signal the status from cfn-init
+          # Signal the status from cfn-init
 
-            /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource
-            EC2Instance --region ${AWS::Region}
-          - {}
+          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource
+          EC2Instance --region ${AWS::Region}
 
     Metadata:
       AWS::CloudFormation::Init:
