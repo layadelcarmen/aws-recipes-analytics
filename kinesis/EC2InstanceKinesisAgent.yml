@@ -83,8 +83,36 @@ Resources:
       AWS::CloudFormation::Init:
         configSets:
           InstallAndConfigure:
+            - "enable_cfn_hup"
             - "enable_kinesis_agent"
             - "enable_log_generator"
+        enable_cfn_hup:
+          files:
+            /etc/cfn/cfn-hup.conf:
+              content: !Sub |
+                [main]
+                stack=${AWS::StackId}
+                region=${AWS::Region}
+              mode: '000400'
+              owner: root
+              group: root
+            /etc/cfn/hooks.d/cfn-auto-reloader.conf:
+              content: !Sub |
+                [cfn-auto-reloader-hook]
+                triggers=post.update
+                path=Resources.EC2Instance.Metadata.AWS::CloudFormation::Init
+                action=/opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource EC2Instance --configsets InstallAndConfigure --region ${AWS::Region}
+                runas=root
+              mode: '000400'
+              owner: root
+              group: root
+          commands:
+            01_fix_sysv_file:
+              command: "sudo sed -i 's/\\/var\\/run\\/cfn-hup.pid/\\/run\\/cfn-hup.pid/g' /etc/init.d/cfn-hup"
+            02_enable_cfn_hup:
+              command: systemctl enable cfn-hup.service
+            03_start_cfn_hup:
+              command: systemctl start cfn-hup.service
         enable_kinesis_agent:
           packages:
             yum:
