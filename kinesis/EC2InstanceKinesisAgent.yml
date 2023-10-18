@@ -165,7 +165,7 @@ Resources:
             Action:
               - "cloudwatch:PutMetricData"
             Resource: '*'
-      PolicyName: "kinesisds-put-records-policy"
+      PolicyName: !Sub ${AWS::StackName}-firehose-put-records-policy"
       Roles:
         - !Ref LnDataProducerRole
 
