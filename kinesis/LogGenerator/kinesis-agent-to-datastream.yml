@@ -1,0 +1,200 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Metadata:
+  License: Apache-2.0
+Description: 'AWS CloudFormation Sample Template EC2InstanceWithSecurityGroupSample:
+  Create an Amazon EC2 instance running the Amazon Linux AMI.
+  This example creates an EC2 security group for the instance to give you SSH access.
+  Kinesis Agent is installed, configured and started to process logs data created for a python app.
+   **WARNING** This template creates an Amazon EC2 instance.
+  You will be billed for the AWS resources used if you create a stack
+  from this template.'
+Parameters:
+  KinesisDataStream:
+    Description: The name of your Kinesis Data Stream.
+    Type: String
+    Default: sensordata-stream
+  InstanceType:
+    Description: EC2 instance type
+    Type: String
+    Default: t2.micro
+    AllowedValues: [t2.nano, t2.micro, t2.small, t2.medium, t2.large, t2.xlarge, t2.2xlarge,
+      t3.nano, t3.micro, t3.small, t3.medium, t3.large, t3.xlarge, t3.2xlarge,
+      m4.large, m4.xlarge, m4.2xlarge, m4.4xlarge, m4.10xlarge,
+      m5.large, m5.xlarge, m5.2xlarge, m5.4xlarge,
+      c5.large, c5.xlarge, c5.2xlarge, c5.4xlarge, c5.9xlarge,
+      g3.8xlarge,
+      r5.large, r5.xlarge, r5.2xlarge, r5.4xlarge, r3.12xlarge,
+      i3.xlarge, i3.2xlarge, i3.4xlarge, i3.8xlarge,
+      d2.xlarge, d2.2xlarge, d2.4xlarge, d2.8xlarge]
+    ConstraintDescription: must be a valid EC2 instance type.
+  SSHLocation:
+    Description: The IP address range that can be used to SSH to the EC2 instances
+    Type: String
+    MinLength: 9
+    MaxLength: 18
+    Default: 0.0.0.0/0
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+  LatestAmiId:
+    Type:  'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64'
+Resources:
+  SensorDataStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: !Sub "${KinesisDataStream}"
+      RetentionPeriodHours: 24
+      ShardCount: 1
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref 'InstanceType'
+      SecurityGroups: [!Ref 'InstanceSecurityGroup']
+      ImageId: !Ref LatestAmiId
+      IamInstanceProfile: !Ref LnInstanceProfiler
+      UserData: !Base64
+        'Fn::Sub':
+          - >
+            #!/bin/bash -x
+
+            # Install the files and packages from the metadata
+
+            /opt/aws/bin/cfn-init -v --stack ${AWS::StackName}
+            --resource EC2Instance
+            --configsets InstallAndConfigure
+            --region ${AWS::Region}
+
+            # Signal the status from cfn-init
+
+            /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource
+            EC2Instance --region ${AWS::Region}
+          - {}
+
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          InstallAndConfigure:
+            - "enable_kinesis_agent"
+            - "setup_run_data_generator"
+        enable_kinesis_agent:
+          packages:
+            yum:
+              aws-kinesis-agent: []
+          files:
+            /etc/aws-kinesis/agent.json:
+              content: !Sub
+                - |
+                  {
+                    "cloudwatch.emitMetrics": true,
+                    "kinesis.endpoint": "",
+                    "firehose.endpoint": "",
+
+                    "flows": [
+                      {
+                        "filePattern": "/var/log/cadabra/*.log",
+                        "kinesisStream": "${Stream}",
+                        "partitionKeyOption": "RANDOM",
+                        "dataProcessingOptions": [
+                          {
+                              "optionName": "CSVTOJSON",
+                              "customFieldNames": ["InvoiceNo", "StockCode", "Description", "Quantity", "InvoiceDate", "UnitPrice", "Customer", "Country"]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                - Stream: !Sub ${SensorDataStream}
+              mode: '000644'
+              owner: root
+              group: root
+          commands:
+            make_log_stream_dir:
+              command: "sudo mkdir /var/log/cadabra"
+          services:
+            systemd:
+              aws-kinesis-agent:
+                enabled: "true"
+                ensureRunning: "true"
+                files:
+                  - "/etc/aws-kinesis/agent.json"
+                packages:
+                  yum:
+                    - "aws-kinesis-agent"
+        setup_run_data_generator:
+          files:
+            /home/ec2-user/generator_setup:
+              content: !Sub |
+                #!/bin/bash -x
+                wget http://media.sundog-soft.com/AWSBigData/LogGenerator.zip
+                unzip LogGenerator.zip
+                chmod a+x LogGenerator.py
+              mode: '000555'
+          commands:
+            01_setup_generator:
+              command: "./generator_setup"
+              cwd: "/home/ec2-user"
+            02_run_generator:
+              command: "./LogGenerator.py 500000"
+              cwd: "/home/ec2-user"
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access via port 22
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: !Ref 'SSHLocation'
+  LnInstanceProfiler:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref LnDataProducerRole
+  LnDataProducerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AWS::StackName}-data-producer-role-ks
+      AssumeRolePolicyDocument:
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "ec2.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+  LnKinesisPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          -
+            Effect: "Allow"
+            Action:
+              - "kinesis:DescribeStream"
+              - "kinesis:PutRecord"
+              - "kinesis:PutRecords"
+            Resource: !Sub
+              - "arn:aws:kinesis:${AWS::Region}:${AWS::AccountId}:stream/${DS}"
+              - DS: !Ref SensorDataStream
+          - Effect: Allow
+            Action:
+              - "cloudwatch:PutMetricData"
+            Resource: '*'
+      PolicyName: !Sub "${AWS::StackName}-firehose-put-records-policy"
+      Roles:
+        - !Ref LnDataProducerRole
+
+Outputs:
+  InstanceId:
+    Description: InstanceId of the newly created EC2 instance
+    Value: !Ref 'EC2Instance'
+  AZ:
+    Description: Availability Zone of the newly created EC2 instance
+    Value: !GetAtt EC2Instance.AvailabilityZone
+  PublicDNS:
+    Description: Public DNSName of the newly created EC2 instance
+    Value: !GetAtt EC2Instance.PublicDnsName
+  PublicIP:
+    Description: Public IP address of the newly created EC2 instance
+    Value: !GetAtt EC2Instance.PublicIp
