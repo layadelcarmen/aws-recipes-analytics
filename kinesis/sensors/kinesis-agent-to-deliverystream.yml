@@ -53,7 +53,7 @@ Parameters:
   FileIDFormat:
     Description: strftime format for the file ID
     Type: String
-    Default: "%Y%m%d-%H%M%S"
+    Default: "%%Y%%m%%d-%%H%%M%%S"
   FilenameSuffix:
     Description: suffix for the data file names
     Type: String
