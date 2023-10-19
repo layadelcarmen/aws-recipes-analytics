@@ -283,7 +283,7 @@ Resources:
             Action:
               - "cloudwatch:PutMetricData"
             Resource: '*'
-      PolicyName: !Sub ${AWS::StackName}-firehose-put-records-policy"
+      PolicyName: !Sub "${AWS::StackName}-firehose-put-records-policy"
       Roles:
         - !Ref LnDataProducerRole
 
