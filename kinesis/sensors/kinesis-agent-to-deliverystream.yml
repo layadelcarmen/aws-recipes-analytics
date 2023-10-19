@@ -54,6 +54,10 @@ Parameters:
     Description: amount of lines per data generation
     Type: Number
     Default: 100
+  Wait4Gen:
+    Description: seconds to wait before new generation
+    Type: Number
+    Default: 10
 
 Resources:
   EC2Instance:
@@ -211,11 +215,12 @@ Resources:
                   parser.add_argument('f_prefix', help='prefix of file names')
                   parser.add_argument('f_suffix', help='suffix of file names')
                   parser.add_argument('cnt_lines', help='amount of lines per addition', type=int)
+                  parser.add_argument('wait4gen', help='seconds to wait before new generation', type=int)
                   args = parser.parse_args()
                   signal_handler = SignalHandler()
                   while signal_handler.can_run():
                     save_data(args.file_path, args.f_prefix, args.f_suffix, args.cnt_lines)
-                    time.sleep(random.uniform(2, 3))
+                    time.sleep(args.wait4gen)
               mode: '000555'
             /lib/systemd/system/log-generator.service:
               content: !Sub
@@ -227,7 +232,7 @@ Resources:
                   [Service]
                   Type=simple
                   Restart=always
-                  ExecStart=/usr/bin/python3 /home/ec2-user/log_generator.py ${DataPath} ${FnamePrefix} ${FnameSuffix} ${CntLines}
+                  ExecStart=/usr/bin/python3 /home/ec2-user/log_generator.py ${DataPath} ${FnamePrefix} ${FnameSuffix} ${CntLines} ${Wait4Gen}
                   
                   [Install]
                   WantedBy=multi-user.target
@@ -235,6 +240,7 @@ Resources:
                   FnamePrefix: !Ref FilenamePrefix
                   FnameSuffix: !Ref FilenameSuffix
                   CntLines: !Ref CntLinesPerGeneration
+                  Wait4Gen: !Ref Wait4Gen
           services:
             systemd:
               log-generator:
