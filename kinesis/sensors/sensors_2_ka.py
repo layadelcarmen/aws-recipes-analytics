@@ -37,7 +37,7 @@ def get_random_data():
     }
 
 def save_data(file_path, f_prefix, f_suffix, f_id_fmt, cnt_lines):
-    data_path = time.strftime(f"{file_path}/{f_prefix}_%Y%m%d-%H%M%S{f_suffix}")
+    data_path = time.strftime(f"{file_path}/{f_prefix}_{f_id_fmt}{f_suffix}")
     with open(data_path, 'a') as data_file:
         for line in range(cnt_lines):
             data = get_random_data()
