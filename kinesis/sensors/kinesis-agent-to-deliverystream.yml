@@ -184,16 +184,16 @@ Resources:
                   [Service]
                   Type=simple
                   Restart=always
-                  ExecStart=/usr/bin/python3 /home/ec2-user/log_generator.py ${DataPath} ${FnamePrefix} ${FnameSuffix} ${FileIDFormat} ${CntLines} ${Wait4Gen}
+                  ExecStart=/usr/bin/python3 /home/ec2-user/log_generator.py ${DataPath} ${FnamePrefix} ${FileIDFormat} ${FnameSuffix} ${CntLines} ${Wait4Gen}
                   
                   [Install]
                   WantedBy=multi-user.target
                 - DataPath: !Ref DataPath
                   FnamePrefix: !Ref FilenamePrefix
+                  FileIDFormat: !Ref FileIDFormat
                   FnameSuffix: !Ref FilenameSuffix
                   CntLines: !Ref CntLinesPerGeneration
                   Wait4Gen: !Ref Wait4Gen
-                  FileIDFormat: !Ref FileIDFormat
           services:
             systemd:
               log-generator:
