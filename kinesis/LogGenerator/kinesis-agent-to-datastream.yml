@@ -98,10 +98,16 @@ Resources:
           commands:
             01_fix_sysv_file:
               command: "sudo sed -i 's/\\/var\\/run\\/cfn-hup.pid/\\/run\\/cfn-hup.pid/g' /etc/init.d/cfn-hup"
-            02_enable_cfn_hup:
-              command: systemctl enable cfn-hup.service
-            03_start_cfn_hup:
-              command: systemctl start cfn-hup.service
+          services:
+            systemd:
+              cfn-hup:
+                enabled: "true"
+                ensureRunning: "true"
+                files:
+                  - "/etc/rc.d/init.d/cfn-hup"
+                packages:
+                  yum:
+                    - "aws-cfn-bootstrap"
         enable_kinesis_agent:
           packages:
             yum:
