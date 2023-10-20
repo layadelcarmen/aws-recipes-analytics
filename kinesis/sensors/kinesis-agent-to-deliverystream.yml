@@ -169,31 +169,40 @@ Resources:
                     - "aws-kinesis-agent"
         enable_log_generator:
           files:
+            /etc/log-generator/sensors_2_ka.env:
+              content: |
+                DATA_PATH={{DATA_PATH}}
+                FILEID_FORMAT={{FILEID_FORMAT}}
+                FNAME_SUFFIX={{FNAME_SUFFIX}}
+                WAIT4GEN={{WAIT4GEN}}
+              context:
+                DATA_PATH: !Ref DataPath
+                FILEID_FORMAT: !Ref FileIDFormat
+                FNAME_SUFFIX: !Ref FilenameSuffix
+                WAIT4GEN: !Ref Wait4Gen
+              mode: '000555'
             /usr/local/bin/sensors_2_ka.py:
               source: !Sub
                 - ${SourceUrlPreffix}/kinesis/sensors/sensors_2_ka.py
                 - Preffix: SourceUrlPreffix
               mode: '000555'
             /lib/systemd/system/log-generator.service:
-              content: !Sub
-                - |
-                  [Unit]
-                  Description=Log generator service
-                  After=aws-kinesis-agent.service
-                  
-                  [Service]
-                  Type=simple
-                  Restart=always
-                  ExecStart=/usr/bin/python3 /usr/local/bin/sensors_2_ka.py ${DataPath} ${FnamePrefix} ${FileIDFormat} ${FnameSuffix} ${CntLines} ${Wait4Gen}
-                  
-                  [Install]
-                  WantedBy=multi-user.target
-                - DataPath: !Ref DataPath
-                  FnamePrefix: !Ref FilenamePrefix
-                  FileIDFormat: !Ref FileIDFormat
-                  FnameSuffix: !Ref FilenameSuffix
-                  CntLines: !Ref CntLinesPerGeneration
-                  Wait4Gen: !Ref Wait4Gen
+              content: |
+                [Unit]
+                Description=Log generator service
+                After=aws-kinesis-agent.service
+                
+                [Service]
+                Type=simple
+                Restart=always
+                EnvironmentFile=/etc/log-generator/sensors_2_ka.env
+                ExecStart=/usr/bin/python3 /usr/local/bin/sensors_2_ka.py {{FPrefix}} {{CntLines}}
+                
+                [Install]
+                WantedBy=multi-user.target
+              context:
+                FPrefix: !Ref FilenamePrefix
+                CntLines: !Ref CntLinesPerGeneration
           services:
             systemd:
               log-generator:
