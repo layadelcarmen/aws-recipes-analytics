@@ -209,6 +209,7 @@ Resources:
                 enabled: "true"
                 ensureRunning: "true"
                 files:
+                  - "/etc/log-generator/sensors_2_ka.env"
                   - "/usr/local/bin/sensors_2_ka.py"
 
   InstanceSecurityGroup:
