@@ -114,28 +114,26 @@ Resources:
               aws-kinesis-agent: []
           files:
             /etc/aws-kinesis/agent.json:
-              content: !Sub
-                - |
-                  {
-                    "cloudwatch.emitMetrics": true,
-                    "kinesis.endpoint": "",
-                    "firehose.endpoint": "",
+              content: !Sub |
+                {
+                  "cloudwatch.emitMetrics": true,
+                  "kinesis.endpoint": "",
+                  "firehose.endpoint": "",
 
-                    "flows": [
-                      {
-                        "filePattern": "/var/log/cadabra/*.log",
-                        "kinesisStream": "${Stream}",
-                        "partitionKeyOption": "RANDOM",
-                        "dataProcessingOptions": [
-                          {
-                              "optionName": "CSVTOJSON",
-                              "customFieldNames": ["InvoiceNo", "StockCode", "Description", "Quantity", "InvoiceDate", "UnitPrice", "Customer", "Country"]
-                          }
-                        ]
-                      }
-                    ]
-                  }
-                - Stream: !Sub ${SensorDataStream}
+                  "flows": [
+                    {
+                      "filePattern": "/var/log/cadabra/*.log",
+                      "kinesisStream": "${SensorDataStream}",
+                      "partitionKeyOption": "RANDOM",
+                      "dataProcessingOptions": [
+                        {
+                            "optionName": "CSVTOJSON",
+                            "customFieldNames": ["InvoiceNo", "StockCode", "Description", "Quantity", "InvoiceDate", "UnitPrice", "Customer", "Country"]
+                        }
+                      ]
+                    }
+                  ]
+                }
               mode: '000644'
               owner: root
               group: root
@@ -206,9 +204,7 @@ Resources:
               - "kinesis:DescribeStream"
               - "kinesis:PutRecord"
               - "kinesis:PutRecords"
-            Resource: !Sub
-              - "arn:aws:kinesis:${AWS::Region}:${AWS::AccountId}:stream/${DS}"
-              - DS: !Ref SensorDataStream
+            Resource: !Sub "arn:aws:kinesis:${AWS::Region}:${AWS::AccountId}:stream/${SensorDataStream}"
           - Effect: Allow
             Action:
               - "cloudwatch:PutMetricData"
