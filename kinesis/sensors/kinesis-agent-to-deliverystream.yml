@@ -169,7 +169,7 @@ Resources:
                     - "aws-kinesis-agent"
         enable_log_generator:
           files:
-            /home/ec2-user/log_generator.py:
+            /usr/local/bin/sensors_2_ka.py:
               source: !Sub
                 - ${SourceUrlPreffix}/kinesis/sensors/sensors_2_ka.py
                 - Preffix: SourceUrlPreffix
@@ -184,7 +184,7 @@ Resources:
                   [Service]
                   Type=simple
                   Restart=always
-                  ExecStart=/usr/bin/python3 /home/ec2-user/log_generator.py ${DataPath} ${FnamePrefix} ${FileIDFormat} ${FnameSuffix} ${CntLines} ${Wait4Gen}
+                  ExecStart=/usr/bin/python3 /usr/local/bin/sensors_2_ka.py ${DataPath} ${FnamePrefix} ${FileIDFormat} ${FnameSuffix} ${CntLines} ${Wait4Gen}
                   
                   [Install]
                   WantedBy=multi-user.target
@@ -200,7 +200,7 @@ Resources:
                 enabled: "true"
                 ensureRunning: "true"
                 files:
-                  - "/home/ec2-user/log_generator.py"
+                  - "/usr/local/bin/sensors_2_ka.py"
 
   InstanceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
