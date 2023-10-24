@@ -36,8 +36,8 @@ def get_random_data():
         'event_time': datetime.datetime.now().isoformat()
     }
 
-def save_data(file_path, f_prefix, f_suffix, f_id_fmt, cnt_lines):
-    data_path = time.strftime(f"{file_path}/{f_prefix}_%Y%m%d-%H%M%S{f_suffix}")
+def save_data(file_path, f_prefix, f_id_fmt, f_suffix, cnt_lines):
+    data_path = time.strftime(f"{file_path}/{f_prefix}_{f_id_fmt}{f_suffix}")
     with open(data_path, 'a') as data_file:
         for line in range(cnt_lines):
             data = get_random_data()
@@ -48,12 +48,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('file_path', help='path of the files to generate')
     parser.add_argument('f_prefix', help='prefix of file names')
-    parser.add_argument('f_suffix', help='suffix of file names')
     parser.add_argument('f_id_fmt', help='strftime format for the file ID')
+    parser.add_argument('f_suffix', help='suffix of file names')
     parser.add_argument('cnt_lines', help='amount of lines per addition', type=int)
     parser.add_argument('wait4gen', help='seconds to wait before new generation', type=int)
     args = parser.parse_args()
     signal_handler = SignalHandler()
     while signal_handler.can_run():
-        save_data(args.file_path, args.f_prefix, args.f_suffix, args.f_id_fmt, args.cnt_lines)
+        save_data(args.file_path, args.f_prefix, args.f_id_fmt, args.f_suffix, args.cnt_lines)
         time.sleep(args.wait4gen)
