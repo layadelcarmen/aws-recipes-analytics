@@ -22,17 +22,13 @@ Resources:
   S3DeliveryLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub
-        - '/aws/kinesisfirehose/${AWS::StackName}/${LogGroupName}'
-        - LogGroupName: !Ref LogGroupName
+      LogGroupName: !Sub "/aws/kinesisfirehose/${AWS::StackName}/${LogGroupName}"
       RetentionInDays: 14
   S3DeliveryLogStream:
     Type: AWS::Logs::LogStream
     Properties:
       LogGroupName: !Ref S3DeliveryLogGroup
-      LogStreamName: !Sub
-        - '${AWS::StackName}-${LogStreamName}'
-        - LogStreamName: !Ref LogStreamName
+      LogStreamName: !Sub "${AWS::StackName}-${LogStreamName}"
   S3DeliveryStream:
     Type: AWS::KinesisFirehose::DeliveryStream
     Properties:
@@ -86,7 +82,7 @@ Resources:
                   - 's3:PutObject'
                 Resource:
                   - !GetAtt S3DeliveryBucket.Arn
-                  - !Join [ "", [ !GetAtt S3DeliveryBucket.Arn, '/*' ] ]
+                  - !Sub "${S3DeliveryBucket.Arn}/*"
 
 Outputs:
   S3DeliveryLogGroup:

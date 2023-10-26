@@ -105,9 +105,6 @@ Resources:
                 [main]
                 stack=${AWS::StackId}
                 region=${AWS::Region}
-              mode: '000400'
-              owner: root
-              group: root
             /etc/cfn/hooks.d/cfn-auto-reloader.conf:
               content: !Sub |
                 [cfn-auto-reloader-hook]
@@ -115,9 +112,6 @@ Resources:
                 path=Resources.EC2Instance.Metadata.AWS::CloudFormation::Init
                 action=/opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource EC2Instance --configsets InstallAndConfigure --region ${AWS::Region}
                 runas=root
-              mode: '000400'
-              owner: root
-              group: root
           commands:
             01_fix_sysv_file:
               command: "sudo sed -i 's/\\/var\\/run\\/cfn-hup.pid/\\/run\\/cfn-hup.pid/g' /etc/init.d/cfn-hup"
@@ -137,26 +131,18 @@ Resources:
               aws-kinesis-agent: []
           files:
             /etc/aws-kinesis/agent.json:
-              content: |
+              content: !Sub |
                 {
                   "flows": [
-                        {
-                            "filePattern": "{{DataPath}}/{{FnamePrefix}}*{{FnameSuffix}}",
-                            "deliveryStream": "{{DS}}"
-                        }
+                    {
+                      "filePattern": "${DataPath}/${FilenamePrefix}*${FilenameSuffix}",
+                      "deliveryStream": "${DeliveryStreamName}"
+                    }
                   ]
                 }
-              context:
-                DS: !Ref DeliveryStreamName
-                DataPath: !Ref DataPath
-                FnamePrefix: !Ref FilenamePrefix
-                FnameSuffix: !Ref FilenameSuffix
-              mode: '000644'
-              owner: root
-              group: root
           commands:
             make_log_stream_dir:
-              command: !Sub [ "sudo mkdir ${DataPath}", { DataPath: !Ref DataPath } ]
+              command: !Sub "sudo mkdir ${DataPath}"
           services:
             systemd:
               aws-kinesis-agent:
@@ -170,24 +156,17 @@ Resources:
         enable_log_generator:
           files:
             /etc/log-generator/sensors_2_ka.env:
-              content: |
-                DATA_PATH={{DATA_PATH}}
-                FILEID_FORMAT={{FILEID_FORMAT}}
-                FNAME_SUFFIX={{FNAME_SUFFIX}}
-                WAIT4GEN={{WAIT4GEN}}
-              context:
-                DATA_PATH: !Ref DataPath
-                FILEID_FORMAT: !Ref FileIDFormat
-                FNAME_SUFFIX: !Ref FilenameSuffix
-                WAIT4GEN: !Ref Wait4Gen
+              content: !Sub |
+                DATA_PATH=${DataPath}
+                FILEID_FORMAT=${FileIDFormat}
+                FNAME_SUFFIX=${FilenameSuffix}
+                WAIT4GEN=${Wait4Gen}
               mode: '000555'
             /usr/local/bin/sensors_2_ka.py:
-              source: !Sub
-                - ${SourceUrlPreffix}/kinesis/sensors/sensors_2_ka.py
-                - Preffix: SourceUrlPreffix
+              source: !Sub "${SourceUrlPreffix}/kinesis/sensors/sensors_2_ka.py"
               mode: '000555'
             /lib/systemd/system/log-generator.service:
-              content: |
+              content: !Sub |
                 [Unit]
                 Description=Log generator service
                 After=aws-kinesis-agent.service
@@ -196,13 +175,10 @@ Resources:
                 Type=simple
                 Restart=always
                 EnvironmentFile=/etc/log-generator/sensors_2_ka.env
-                ExecStart=/usr/bin/python3 /usr/local/bin/sensors_2_ka.py {{FPrefix}} {{CntLines}}
+                ExecStart=/usr/bin/python3 /usr/local/bin/sensors_2_ka.py ${FilenamePrefix} ${CntLinesPerGeneration}
                 
                 [Install]
                 WantedBy=multi-user.target
-              context:
-                FPrefix: !Ref FilenamePrefix
-                CntLines: !Ref CntLinesPerGeneration
           services:
             systemd:
               log-generator:
@@ -251,9 +227,7 @@ Resources:
               - "firehose:PutRecord"
               - "firehose:PutRecordBatch"
               - "firehose:UpdateDestination"
-            Resource: !Sub
-              - "arn:aws:firehose:${AWS::Region}:${AWS::AccountId}:deliverystream/${DS}"
-              - DS: !Ref DeliveryStreamName
+            Resource: !Sub "arn:aws:firehose:${AWS::Region}:${AWS::AccountId}:deliverystream/${DeliveryStreamName}"
           - Effect: Allow
             Action:
               - "cloudwatch:PutMetricData"
