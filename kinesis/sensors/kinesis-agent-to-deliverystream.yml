@@ -163,10 +163,8 @@ Resources:
                 FILEID_FORMAT=${FileIDFormat}
                 FNAME_SUFFIX=${FilenameSuffix}
                 WAIT4GEN=${Wait4Gen}
-              mode: '000555'
             /usr/local/bin/sensors_2_ka.py:
               source: !Sub "${SourceUrlPreffix}/kinesis/sensors/sensors_2_ka.py"
-              mode: '000555'
             /lib/systemd/system/log-generator.service:
               content: !Sub |
                 [Unit]

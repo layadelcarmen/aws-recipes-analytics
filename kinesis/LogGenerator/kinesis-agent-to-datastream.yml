@@ -84,9 +84,6 @@ Resources:
                 [main]
                 stack=${AWS::StackId}
                 region=${AWS::Region}
-              mode: '000400'
-              owner: root
-              group: root
             /etc/cfn/hooks.d/cfn-auto-reloader.conf:
               content: !Sub |
                 [cfn-auto-reloader-hook]
@@ -94,9 +91,6 @@ Resources:
                 path=Resources.EC2Instance.Metadata.AWS::CloudFormation::Init
                 action=/opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource EC2Instance --configsets InstallAndConfigure --region ${AWS::Region}
                 runas=root
-              mode: '000400'
-              owner: root
-              group: root
           commands:
             01_fix_sysv_file:
               command: "sudo sed -i 's/\\/var\\/run\\/cfn-hup.pid/\\/run\\/cfn-hup.pid/g' /etc/init.d/cfn-hup"
@@ -136,9 +130,6 @@ Resources:
                     }
                   ]
                 }
-              mode: '000644'
-              owner: root
-              group: root
           commands:
             make_log_stream_dir:
               command: "sudo mkdir /var/log/cadabra"
@@ -160,7 +151,7 @@ Resources:
                 wget http://media.sundog-soft.com/AWSBigData/LogGenerator.zip
                 unzip LogGenerator.zip
                 chmod a+x LogGenerator.py
-              mode: '000555'
+              mode: '000500'
           commands:
             01_setup_generator:
               command: "./generator_setup"
