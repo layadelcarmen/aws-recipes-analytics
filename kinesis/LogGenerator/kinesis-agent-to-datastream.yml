@@ -145,20 +145,28 @@ Resources:
                     - "aws-kinesis-agent"
         setup_run_data_generator:
           files:
-            /home/ec2-user/generator_setup:
+            /lib/systemd/system/log-generator.service:
               content: !Sub |
-                #!/bin/bash -x
-                wget http://media.sundog-soft.com/AWSBigData/LogGenerator.zip
-                unzip LogGenerator.zip
-                chmod a+x LogGenerator.py
-              mode: '000500'
-          commands:
-            01_setup_generator:
-              command: "./generator_setup"
-              cwd: "/home/ec2-user"
-            02_run_generator:
-              command: "./LogGenerator.py 500000"
-              cwd: "/home/ec2-user"
+                [Unit]
+                Description=Log generator service
+                After=aws-kinesis-agent.service
+
+                [Service]
+                Type=oneshot
+                WorkingDirectory=/usr/local/bin/log-generator/
+                ExecStart=/usr/bin/python3 /usr/local/bin/log-generator/LogGenerator.py 500000
+
+                [Install]
+                WantedBy=multi-user.target
+          sources:
+            /usr/local/bin/log-generator: "http://media.sundog-soft.com/AWSBigData/LogGenerator.zip"
+          services:
+            systemd:
+              log-generator:
+                enabled: "true"
+                ensureRunning: "true"
+                files:
+                  - "/usr/local/bin/log-generator/LogGenerator.py"
   InstanceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
