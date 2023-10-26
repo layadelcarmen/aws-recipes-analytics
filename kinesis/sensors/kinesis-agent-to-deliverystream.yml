@@ -41,7 +41,7 @@ Parameters:
   SourceUrlPreffix:
     Description: source url preffix 
     Type: String
-    Default: https://raw.githubusercontent.com/layadelcarmen/aws-recipes-analytics
+    Default: https://raw.githubusercontent.com/layadelcarmen/aws-recipes-analytics/main
   DataPath:
     Description: data path to the kinesis agent input
     Type: String
@@ -171,7 +171,7 @@ Resources:
           files:
             /home/ec2-user/log_generator.py:
               source: !Sub
-                - ${SourceUrlPreffix}/main/kinesis/sensors/sensors_2_ka.py
+                - ${SourceUrlPreffix}/kinesis/sensors/sensors_2_ka.py
                 - Preffix: SourceUrlPreffix
               mode: '000555'
             /lib/systemd/system/log-generator.service:
