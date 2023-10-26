@@ -9,10 +9,6 @@ Description: 'AWS CloudFormation Sample Template EC2InstanceWithSecurityGroupSam
   You will be billed for the AWS resources used if you create a stack
   from this template.'
 Parameters:
-  KinesisDataStream:
-    Description: The name of your Kinesis Data Stream.
-    Type: String
-    Default: sensordata-stream
   InstanceType:
     Description: EC2 instance type
     Type: String
@@ -38,11 +34,44 @@ Parameters:
   LatestAmiId:
     Type:  'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
     Default: '/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64'
+  KinesisDataStreamName:
+    Description: Datastream name
+    Type: String
+    Default: KDS-Sensors
+  SourceUrlPreffix:
+    Description: source url preffix 
+    Type: String
+    Default: https://raw.githubusercontent.com/layadelcarmen/aws-recipes-analytics/main
+  DataPath:
+    Description: data path to the kinesis agent input
+    Type: String
+    Default: /var/log/sensors
+  FilenamePrefix:
+    Description: prefix for the data file names
+    Type: String
+    Default: sensors_data
+  FileIDFormat:
+    Description: strftime format for the file ID
+    Type: String
+    Default: "%Y%m%d-%H%M%S"
+  FilenameSuffix:
+    Description: suffix for the data file names
+    Type: String
+    Default: .log
+  CntLinesPerGeneration:
+    Description: amount of lines per data generation
+    Type: Number
+    Default: 100
+  Wait4Gen:
+    Description: seconds to wait before new generation
+    Type: Number
+    Default: 10
+
 Resources:
   SensorDataStream:
     Type: AWS::Kinesis::Stream
     Properties:
-      Name: !Sub "${KinesisDataStream}"
+      Name: !Sub "${KinesisDataStreamName}"
       RetentionPeriodHours: 24
       ShardCount: 1
   EC2Instance:
@@ -76,7 +105,7 @@ Resources:
           InstallAndConfigure:
             - "enable_cfn_hup"
             - "enable_kinesis_agent"
-            - "setup_run_data_generator"
+            - "enable_log_generator"
         enable_cfn_hup:
           files:
             /etc/cfn/cfn-hup.conf:
@@ -112,27 +141,16 @@ Resources:
             /etc/aws-kinesis/agent.json:
               content: !Sub |
                 {
-                  "cloudwatch.emitMetrics": true,
-                  "kinesis.endpoint": "",
-                  "firehose.endpoint": "",
-
                   "flows": [
                     {
-                      "filePattern": "/var/log/cadabra/*.log",
-                      "kinesisStream": "${SensorDataStream}",
-                      "partitionKeyOption": "RANDOM",
-                      "dataProcessingOptions": [
-                        {
-                            "optionName": "CSVTOJSON",
-                            "customFieldNames": ["InvoiceNo", "StockCode", "Description", "Quantity", "InvoiceDate", "UnitPrice", "Customer", "Country"]
-                        }
-                      ]
+                      "filePattern": "${DataPath}/${FilenamePrefix}*${FilenameSuffix}",
+                      "kinesisStream": "${SensorDataStream}"
                     }
                   ]
                 }
           commands:
             make_log_stream_dir:
-              command: "sudo mkdir /var/log/cadabra"
+              command: !Sub "sudo mkdir ${DataPath}"
           services:
             systemd:
               aws-kinesis-agent:
@@ -143,30 +161,39 @@ Resources:
                 packages:
                   yum:
                     - "aws-kinesis-agent"
-        setup_run_data_generator:
+        enable_log_generator:
           files:
+            /etc/log-generator/sensors_2_ka.env:
+              content: !Sub |
+                DATA_PATH=${DataPath}
+                FILEID_FORMAT=${FileIDFormat}
+                FNAME_SUFFIX=${FilenameSuffix}
+                WAIT4GEN=${Wait4Gen}
+            /usr/local/bin/sensors_2_ka.py:
+              source: !Sub "${SourceUrlPreffix}/kinesis/sensors/sensors_2_ka.py"
             /lib/systemd/system/log-generator.service:
               content: !Sub |
                 [Unit]
                 Description=Log generator service
                 After=aws-kinesis-agent.service
-
+                
                 [Service]
-                Type=oneshot
-                WorkingDirectory=/usr/local/bin/log-generator/
-                ExecStart=/usr/bin/python3 /usr/local/bin/log-generator/LogGenerator.py 500000
-
+                Type=simple
+                Restart=always
+                EnvironmentFile=/etc/log-generator/sensors_2_ka.env
+                ExecStart=/usr/bin/python3 /usr/local/bin/sensors_2_ka.py ${FilenamePrefix} ${CntLinesPerGeneration}
+                
                 [Install]
                 WantedBy=multi-user.target
-          sources:
-            /usr/local/bin/log-generator: "http://media.sundog-soft.com/AWSBigData/LogGenerator.zip"
           services:
             systemd:
               log-generator:
                 enabled: "true"
                 ensureRunning: "true"
                 files:
-                  - "/usr/local/bin/log-generator/LogGenerator.py"
+                  - "/etc/log-generator/sensors_2_ka.env"
+                  - "/usr/local/bin/sensors_2_ka.py"
+
   InstanceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
