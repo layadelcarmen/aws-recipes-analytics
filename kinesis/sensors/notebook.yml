@@ -48,6 +48,116 @@ Resources:
           MonitoringConfiguration:
             LogLevel: INFO
 
+  KinesisAppCreateRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: KinesisAppCreatePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:DescribeLogStreams
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+              - Effect: Allow
+                Action:
+                  - kinesisanalytics:DescribeApplication
+                  - kinesisanalytics:AddApplicationCloudWatchLoggingOption
+                Resource: '*'
+
+  KinesisAppCreateEvent:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt KinesisAppCreateFunc.Arn
+      ResourceRef: !Ref SensorsNotebook
+
+  KinesisAppCreateLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/kinesis-analytics/${AWS::StackName}-notebook
+
+  KinesisAppCreateLogStream:
+    Type: AWS::Logs::LogStream
+    Properties:
+      LogGroupName: !Ref KinesisAppCreateLogGroup
+      LogStreamName: !Sub ${AWS::StackName}-kinesis-analytics-log-stream
+
+  KinesisAppCreateFunc:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.lambda_handler
+      Description: "Adjust kinesis app / notebook after creation"
+      Timeout: 30
+      Role: !GetAtt KinesisAppCreateRole.Arn
+      Runtime: python3.7
+      Code:
+        ZipFile: !Sub |
+          import json
+          import logging
+          import cfnresponse
+          import boto3
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+
+          def lambda_handler(event, context):
+            logger.info('got event {}'.format(event))
+            try:
+              responseData = {}
+              if event['RequestType'] == 'Delete':
+                logger.info('Incoming RequestType: Delete operation')
+                cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+              elif event['RequestType'] == 'Update':
+                logger.info('Incoming RequestType: Update operation')
+                cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+              elif event['RequestType'] in ["Create"]:
+                logs_client=boto3.client('logs')
+                log_stream = logs_client.describe_log_streams(
+                    logGroupName='${KinesisAppCreateLogGroup}',
+                    logStreamNamePrefix='${KinesisAppCreateLogStream}',
+                    limit=1
+                )['logStreams'][0]
+                app_name=event['ResourceProperties']['ResourceRef']
+                client=boto3.client('kinesisanalyticsv2')
+                app_desc=client.describe_application(
+                  ApplicationName=app_name,
+                  IncludeAdditionalDetails=False
+                )
+                app=app_desc['ApplicationDetail']
+                response = client.add_application_cloud_watch_logging_option(
+                  ApplicationName=app['ApplicationName'],
+                  CurrentApplicationVersionId=app['ApplicationVersionId'],
+                  CloudWatchLoggingOption={
+                    'LogStreamARN': log_stream['arn']
+                  }
+                )
+                responseData = {
+                  'ApplicationName': app['ApplicationName'],
+                  'CurrentApplicationVersionId': app['ApplicationVersionId'],
+                  'LogStreamARN': log_stream['arn']
+                }
+                logger.info('log enabled {}'.format(responseData))
+                cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData)
+              else:
+                logger.info('Unexpected RequestType!')
+                cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData)
+            except Exception as err:
+              logger.error(err)
+              responseData = {"Data": str(err)}
+              cfnresponse.send(event,context,cfnresponse.FAILED,responseData)
+            return
+
   GlueDatabase:
     Type: AWS::Glue::Database
     Properties:
