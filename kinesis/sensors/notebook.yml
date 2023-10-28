@@ -18,7 +18,7 @@ Resources:
   SensorsNotebook:
     Type: AWS::KinesisAnalyticsV2::Application
     Properties:
-      ApplicationName: sensors-notebook
+      ApplicationName: !Sub ${AWS::StackName}-sensors-notebook
       ApplicationMode: INTERACTIVE
       RuntimeEnvironment: ZEPPELIN-FLINK-3_0
       ServiceExecutionRole: !GetAtt ServiceExecutionRole.Arn
@@ -53,7 +53,7 @@ Resources:
     Properties:
       CatalogId: !Ref AWS::AccountId
       DatabaseInput:
-        Name: !Ref GlueDatabaseName
+        Name: !Sub ${AWS::StackName}-${GlueDatabaseName}
         Description: Glue database for sensors data
 
   ServiceExecutionRole:
