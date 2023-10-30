@@ -1,0 +1,204 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Metadata:
+  License: Apache-2.0
+Description: KDA Studio application
+Parameters:
+  AppBucketName:
+    Type: String
+    Default: sensors-app
+  GlueDatabaseName:
+    Type: String
+    Default: sensors-db
+
+Resources:
+  S3AppBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-${AppBucketName}"
+  SensorsNotebook:
+    Type: AWS::KinesisAnalyticsV2::Application
+    Properties:
+      ApplicationName: !Sub ${AWS::StackName}-sensors-notebook
+      ApplicationMode: INTERACTIVE
+      RuntimeEnvironment: ZEPPELIN-FLINK-3_0
+      ServiceExecutionRole: !GetAtt ServiceExecutionRole.Arn
+      ApplicationConfiguration:
+        FlinkApplicationConfiguration:
+          ParallelismConfiguration:
+            Parallelism: 4
+            ConfigurationType: CUSTOM
+          MonitoringConfiguration:
+            ConfigurationType: CUSTOM
+            LogLevel: INFO
+            MetricsLevel: APPLICATION
+        ZeppelinApplicationConfiguration:
+          CatalogConfiguration:
+            GlueDataCatalogConfiguration:
+              DatabaseARN: !Sub "arn:aws:glue:${AWS::Region}:${AWS::AccountId}:database/${GlueDatabase}"
+          CustomArtifactsConfiguration:
+            - ArtifactType: DEPENDENCY_JAR
+              MavenReference:
+                GroupId: org.apache.flink
+                ArtifactId: flink-sql-connector-kinesis
+                Version: 1.15.4
+          DeployAsApplicationConfiguration:
+            S3ContentLocation:
+              BasePath: app
+              BucketARN: !GetAtt S3AppBucket.Arn
+          MonitoringConfiguration:
+            LogLevel: INFO
+
+  KinesisAppCreateRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: KinesisAppCreatePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:DescribeLogStreams
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+              - Effect: Allow
+                Action:
+                  - kinesisanalytics:DescribeApplication
+                  - kinesisanalytics:AddApplicationCloudWatchLoggingOption
+                Resource: '*'
+
+  KinesisAppCreateEvent:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt KinesisAppCreateFunc.Arn
+      ResourceRef: !Ref SensorsNotebook
+
+  KinesisAppCreateLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/kinesis-analytics/${AWS::StackName}-notebook
+
+  KinesisAppCreateLogStream:
+    Type: AWS::Logs::LogStream
+    Properties:
+      LogGroupName: !Ref KinesisAppCreateLogGroup
+      LogStreamName: !Sub ${AWS::StackName}-kinesis-analytics-log-stream
+
+  KinesisAppCreateFunc:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.lambda_handler
+      Description: "Adjust kinesis app / notebook after creation"
+      Timeout: 30
+      Role: !GetAtt KinesisAppCreateRole.Arn
+      Runtime: python3.7
+      Code:
+        ZipFile: !Sub |
+          import json
+          import logging
+          import cfnresponse
+          import boto3
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+
+          def lambda_handler(event, context):
+            logger.info('got event {}'.format(event))
+            try:
+              responseData = {}
+              if event['RequestType'] == 'Delete':
+                logger.info('Incoming RequestType: Delete operation')
+                cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+              elif event['RequestType'] == 'Update':
+                logger.info('Incoming RequestType: Update operation')
+                cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+              elif event['RequestType'] in ["Create"]:
+                logs_client=boto3.client('logs')
+                log_stream = logs_client.describe_log_streams(
+                    logGroupName='${KinesisAppCreateLogGroup}',
+                    logStreamNamePrefix='${KinesisAppCreateLogStream}',
+                    limit=1
+                )['logStreams'][0]
+                app_name=event['ResourceProperties']['ResourceRef']
+                client=boto3.client('kinesisanalyticsv2')
+                app_desc=client.describe_application(
+                  ApplicationName=app_name,
+                  IncludeAdditionalDetails=False
+                )
+                app=app_desc['ApplicationDetail']
+                response = client.add_application_cloud_watch_logging_option(
+                  ApplicationName=app['ApplicationName'],
+                  CurrentApplicationVersionId=app['ApplicationVersionId'],
+                  CloudWatchLoggingOption={
+                    'LogStreamARN': log_stream['arn']
+                  }
+                )
+                responseData = {
+                  'ApplicationName': app['ApplicationName'],
+                  'CurrentApplicationVersionId': app['ApplicationVersionId'],
+                  'LogStreamARN': log_stream['arn']
+                }
+                logger.info('log enabled {}'.format(responseData))
+                cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData)
+              else:
+                logger.info('Unexpected RequestType!')
+                cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData)
+            except Exception as err:
+              logger.error(err)
+              responseData = {"Data": str(err)}
+              cfnresponse.send(event,context,cfnresponse.FAILED,responseData)
+            return
+
+  GlueDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Name: !Sub ${AWS::StackName}-${GlueDatabaseName}
+        Description: Glue database for sensors data
+
+  ServiceExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: kinesisanalytics.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: glue-access
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - glue:GetConnection
+                  - glue:GetTable
+                  - glue:GetTables
+                  - glue:CreateTable
+                  - glue:UpdateTable
+                  - glue:GetDatabases
+                  - glue:GetUserDefinedFunction
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:connection/*"
+                  - !Sub "arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:table/*"
+                  - !Sub "arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:database/${GlueDatabase}/*"
+                  - !Sub "arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:catalog"
+                  - !Sub "arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:userDefinedFunction/*"
+              - Effect: Allow
+                Action:
+                  - glue:GetDatabase
+                Resource:
+                  - "*"
