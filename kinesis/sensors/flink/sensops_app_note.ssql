@@ -1,0 +1,9 @@
+%flink.ssql(type=update)
+
+INSERT INTO sensor_state
+SELECT sensor_data.status,
+    COUNT(*) AS num,
+    AVG(sensor_data.current_temperature) AS avg_current_temperature,
+    HOP_ROWTIME(event_time, INTERVAL '10' second, INTERVAL '1' minute) as hop_time
+FROM sensor_data
+GROUP BY HOP(event_time, INTERVAL '10' second, INTERVAL '1' minute), sensor_data.status;
