@@ -48,12 +48,6 @@ Parameters:
     Default: 10
 
 Resources:
-  SensorDataStream:
-    Type: AWS::Kinesis::Stream
-    Properties:
-      Name: !Sub "${KinesisDataStreamName}"
-      RetentionPeriodHours: 24
-      ShardCount: 1
   EC2Instance:
     Type: AWS::EC2::Instance
     Properties:
@@ -132,7 +126,7 @@ Resources:
                 Type=simple
                 Restart=always
                 EnvironmentFile=/etc/sensors/sensors_put_2_kinesis.env
-                ExecStart=/usr/bin/python3 /usr/local/bin/sensors_put_2_kinesis.py ${SensorDataStream}
+                ExecStart=/usr/bin/python3 /usr/local/bin/sensors_put_2_kinesis.py ${KinesisDataStreamName}
 
                 [Install]
                 WantedBy=multi-user.target
@@ -189,7 +183,7 @@ Resources:
               - "kinesis:DescribeStream"
               - "kinesis:PutRecord"
               - "kinesis:PutRecords"
-            Resource: !Sub "arn:aws:kinesis:${AWS::Region}:${AWS::AccountId}:stream/${SensorDataStream}"
+            Resource: !Sub "arn:aws:kinesis:${AWS::Region}:${AWS::AccountId}:stream/${KinesisDataStreamName}"
           - Effect: Allow
             Action:
               - "cloudwatch:PutMetricData"

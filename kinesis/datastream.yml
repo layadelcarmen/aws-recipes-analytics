@@ -1,0 +1,28 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Metadata:
+  License: Apache-2.0
+Description: 'Kinesis data stream'
+Parameters:
+  DataStreamName:
+    Description: Kinesis datastream name
+    Type: String
+    Default: data-stream
+  RetentionPeriodHours:
+    Description: Retention period (in hours)
+    Type: Number
+    Default: 24
+  ShardCount:
+    Description: Shard count
+    Type: Number
+    Default: 1
+Resources:
+  KinesisDataStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: !Sub "${DataStreamName}"
+      RetentionPeriodHours: !Ref RetentionPeriodHours
+      ShardCount: !Ref ShardCount
+Outputs:
+  KinesisDataStreamArn:
+    Description: Kinesis data stream Arn
+    Value: !GetAtt KinesisDataStream.Arn
