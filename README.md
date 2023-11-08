@@ -19,3 +19,6 @@ Creates roles and policies to write in S3 and cloudwatch groups
 
 
 
+
+
+The `stock` generated data sample is the same that [pyflink-getting-started](https://github.com/aws-samples/pyflink-getting-started)
