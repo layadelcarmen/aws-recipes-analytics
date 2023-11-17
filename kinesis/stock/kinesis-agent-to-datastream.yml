@@ -34,7 +34,7 @@ Parameters:
   LatestAmiId:
     Type:  'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
     Default: '/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64'
-  KinesisDataStreamName:
+  StocksDataStreamName:
     Description: Datastream name
     Type: String
     Default: stocks-stream
@@ -68,12 +68,6 @@ Parameters:
     Default: 1
 
 Resources:
-  StockDataStream:
-    Type: AWS::Kinesis::Stream
-    Properties:
-      Name: !Sub "${KinesisDataStreamName}"
-      RetentionPeriodHours: 24
-      ShardCount: 1
   EC2Instance:
     Type: AWS::EC2::Instance
     Properties:
@@ -144,7 +138,7 @@ Resources:
                   "flows": [
                     {
                       "filePattern": "${DataPath}/${FilenamePrefix}*${FilenameSuffix}",
-                      "kinesisStream": "${StockDataStream}"
+                      "kinesisStream": "${StocksDataStreamName}"
                     }
                   ]
                 }
@@ -232,7 +226,7 @@ Resources:
               - "kinesis:DescribeStream"
               - "kinesis:PutRecord"
               - "kinesis:PutRecords"
-            Resource: !Sub "arn:aws:kinesis:${AWS::Region}:${AWS::AccountId}:stream/${StockDataStream}"
+            Resource: !Sub "arn:aws:kinesis:${AWS::Region}:${AWS::AccountId}:stream/${StocksDataStreamName}"
           - Effect: Allow
             Action:
               - "cloudwatch:PutMetricData"
